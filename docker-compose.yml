@@ -1,0 +1,152 @@
+services:
+  # --- 1. ZOOKEEPER (Wymagany przez Kafkę i HBase) ---
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    mem_limit: 512m
+    networks:
+      - bigdata-network
+
+  # --- 2. KAFKA (Buffering Layer) ---
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_HEAP_OPTS: "-Xmx512m -Xms512m"
+    mem_limit: 1g
+    networks:
+      - bigdata-network
+
+  # --- 3. KAFKA UI (Monitoring) ---
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    ports:
+      - "8090:8080"
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=local
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:29092
+      - KAFKA_CLUSTERS_0_ZOOKEEPER=zookeeper:2181
+    depends_on:
+      - kafka
+      - zookeeper
+    mem_limit: 512m
+    networks:
+      - bigdata-network
+
+  # --- 4. APACHE NIFI (Ingestion Layer) ---
+  nifi:
+    image: apache/nifi:latest
+    container_name: nifi
+    ports:
+      - "8443:8443"
+    environment:
+      - SINGLE_USER_CREDENTIALS_USERNAME=admin
+      - SINGLE_USER_CREDENTIALS_PASSWORD=adminadmin123
+    mem_limit: 2g
+    networks:
+      - bigdata-network
+
+  # --- 5. SPARK MASTER (Processing Layer) ---
+  spark-master:
+    image: apache/spark:latest
+    container_name: spark-master
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master
+    environment:
+      - SPARK_NO_DAEMONIZE=true
+    ports:
+      - "8080:8080"
+      - "7077:7077"
+    mem_limit: 1g
+    networks:
+      - bigdata-network
+
+  # --- 6. SPARK WORKER ---
+  spark-worker:
+    image: apache/spark:latest
+    container_name: spark-worker
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
+    environment:
+      - SPARK_NO_DAEMONIZE=true
+      - SPARK_WORKER_MEMORY=1G
+      - SPARK_WORKER_CORES=1
+    depends_on:
+      - spark-master
+    volumes:
+      - ./spark_apps:/opt/spark/work-dir
+    mem_limit: 2g
+    networks:
+      - bigdata-network
+
+  # --- 7. HADOOP NAMENODE (HDFS Storage Layer) ---
+  namenode:
+    image: bde2020/hadoop-namenode:latest
+    container_name: namenode
+    environment:
+      - CLUSTER_NAME=bigdata
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:9000
+    ports:
+      - "9870:9870"
+      - "9000:9000"
+    volumes:
+      - hadoop_namenode:/hadoop/dfs/name
+    mem_limit: 1g
+    networks:
+      - bigdata-network
+
+  # --- 8. HADOOP DATANODE ---
+  datanode:
+    image: bde2020/hadoop-datanode:latest
+    container_name: datanode
+    environment:
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:9000
+    volumes:
+      - hadoop_datanode:/hadoop/dfs/data
+    depends_on:
+      - namenode
+    mem_limit: 1g
+    networks:
+      - bigdata-network
+
+  # --- 9. HBASE (Standalone with embedded RegionServer) ---
+  hbase:
+    image: harisekhon/hbase:latest
+    container_name: hbase
+    hostname: hbase
+    ports:
+      - "16010:16010" # HBase Master Web UI
+      - "16000:16000" # HBase Master
+      - "16020:16020" # HBase RegionServer
+      - "16030:16030" # HBase RegionServer Info
+      - "2888:2888" # HBase Zookeeper peer
+      - "3888:3888" # HBase Zookeeper leader
+    depends_on:
+      - zookeeper
+    mem_limit: 2g
+    networks:
+      - bigdata-network
+    environment:
+      - HBASE_MANAGES_ZK=false
+
+networks:
+  bigdata-network:
+    driver: bridge
+
+volumes:
+  hadoop_namenode:
+  hadoop_datanode:
