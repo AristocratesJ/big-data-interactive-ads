@@ -7,7 +7,7 @@ Stworzenie systemu do analizy pogody, ruchu drogowego i sentymentu w Warszawie w
 - Wykrywanie korków
 - Analizę skuteczności pogody
 - Analizę tweetów pod kątem negatywnego sentymentu
-- Całościowe wykorozystanie analiz w celu wybrania miejsca i czasu na wyświetlanie reklam
+- Całościowe wykorzystanie analiz w celu wybrania miejsca i czasu na wyświetlanie reklam
 
 ---
 
@@ -62,7 +62,7 @@ Po instalacji system poprosi o restart. Po restarcie:
 Sklonuj repozytorium i przejdź do katalogu projektu:
 
 ```powershell
-cd big_data_interactive_ads
+cd big-data-interactive-ads
 ```
 
 Stwórz środowisko wirtualne i zaimportuj biblioteki python za pomocą uv:
