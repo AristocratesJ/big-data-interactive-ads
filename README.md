@@ -124,46 +124,135 @@ Po uruchomieniu, sprawdź czy wszystkie interfejsy są dostępne:
 
 ---
 
-#### 6. Kafka i HBase
+#### 6. Weryfikacja automatycznej konfiguracji
 
-Stwórz tabele HBase i tematy Kafka:
+Po uruchomieniu `docker-compose up -d`, system **automatycznie** wykonuje pełną konfigurację:
+
+- ✅ Czeka na gotowość wszystkich usług (Kafka, HBase, NiFi)
+- ✅ Tworzy wszystkie tematy Kafka
+- ✅ Tworzy wszystkie tabele HBase
+- ✅ Wgrywa i instancjonuje szablon NiFi na canvas
+
+Sprawdź logi automatycznej konfiguracji:
 
 ```powershell
-.\scripts\current_setup_windows.ps1
+docker-compose logs setup
 ```
 
-#### 7. Spark
+Na końcu logów powinieneś zobaczyć:
 
-Rozpocznij zadania ze Spark
+```
+✓ SETUP COMPLETED SUCCESSFULLY!
+```
+
+Jeśli zobaczysz błędy, uruchom ponownie:
+
+```powershell
+docker-compose restart setup
+docker-compose logs -f setup
+```
+
+#### 7. Uruchomienie przepływów danych
+
+> **Ważne**: Po automatycznej konfiguracji z poprzedniego kroku, musisz ręcznie uruchomić przepływy danych. Automatyczna konfiguracja tylko **przygotowuje** infrastrukturę (tematy, tabele, szablon), ale nie startuje pobierania i przetwarzania danych.
+
+**7.1. Uruchom przepływy NiFi** (pobieranie danych z API):
+
+```powershell
+.\scripts\run_nifi_flows.ps1
+```
+
+To uruchomi wszystkie procesory NiFi, które będą pobierać dane z:
+
+- ZTM API (autobusy i trolejbusy)
+- Open-Meteo API (pogoda i jakość powietrza)
+- Twitter API (tweety z Warszawy)
+
+**7.2. Uruchom zadania Spark** (przetwarzanie danych):
 
 ```powershell
 .\scripts\run_spark_jobs.ps1
 ```
 
-Teraz sprawdź czy zadania na Spark'u się odpaliły http://localhost:8080. Poczekaj 30 sek. Jeśli końcowo nie zobaczysz wszystkich 4 odpalonych zadań spark (sekcja Running Applications) wykonaj:
+To uruchomi 4 zadania Spark, które przetwarzają dane z Kafka do HBase:
+
+Teraz sprawdź czy zadania na Spark'u się odpaliły: http://localhost:8080
+
+Poczekaj 30 sek. Powinieneś zobaczyć **4 aktywne aplikacje** w sekcji "Running Applications":
+
+1. `consume_buses_to_hbase`
+2. `consume_trolleys_to_hbase`
+3. `consume_weather_to_hbase`
+4. `consume_air_quality_to_hbase`
+
+Jeśli nie zobaczysz wszystkich 4 zadań, zrestartuj:
 
 ```powershell
 .\scripts\stop_spark_jobs.ps1
 .\scripts\run_spark_jobs.ps1
 ```
 
-Powinieneś wkrótce zobaczyć wszystkie zadania aktywne. Jeśli nie skontaktuj się z Barteczkiem.
+**Zatrzymywanie przepływów danych:**
 
-#### 8. Testuj
+```powershell
+# Zatrzymaj NiFi procesory
+.\scripts\stop_nifi_flows.ps1
 
-Zaimportuj template nifi i uruchom. Poczekaj chwile. Następnie uruchom shell HBase:
+# Zatrzymaj zadania Spark
+.\scripts\stop_spark_jobs.ps1
+```
+
+#### 8. Weryfikacja działania systemu
+
+Poczekaj 2-3 minuty na zebranie pierwszych danych, następnie zweryfikuj:
+
+**8.1. Sprawdź dane w HBase:**
 
 ```powershell
 docker-compose exec hbase hbase shell
 ```
 
-Sprawdź czy dane zostają wrzucone do tabeli:
+W HBase shell wykonaj:
 
 ```hbase
 list
 scan 'transport_events', {LIMIT => 1}
 scan 'air_quality_forecast', {LIMIT => 1}
 scan 'weather_forecast', {LIMIT => 1}
+scan 'tweets', {LIMIT => 1}
+exit
+```
+
+Jeśli zobaczysz dane w tabelach - system działa poprawnie! ✅
+
+**8.2. Monitoruj dane w Kafka UI:**
+
+Otwórz http://localhost:8090 i sprawdź tematy:
+
+- `ztm-buses-raw` - powinny pojawiać się dane o autobusach
+- `weather-forecast-raw` - dane pogodowe
+- `air-quality-raw` - dane o jakości powietrza
+- `tweets-warsaw-raw` - tweety z Warszawy
+
+---
+
+## 🔄 Podsumowanie workflow
+
+```
+1. docker-compose up -d          → Uruchamia wszystkie usługi + auto-konfiguracja
+2. docker-compose logs setup     → Sprawdź czy konfiguracja się powiodła
+3. .\scripts\run_nifi_flows.ps1  → Uruchom pobieranie danych
+4. .\scripts\run_spark_jobs.ps1  → Uruchom przetwarzanie danych
+5. Monitoruj w UI                → Kafka UI, NiFi, Spark Master, HBase
+```
+
+**Ponowne uruchomienie po zatrzymaniu:**
+
+```powershell
+docker-compose down              # Zatrzymaj wszystko
+docker-compose up -d             # Uruchom ponownie (auto-konfiguracja działa!)
+.\scripts\run_nifi_flows.ps1    # Uruchom NiFi
+.\scripts\run_spark_jobs.ps1    # Uruchom Spark
 ```
 
 ## ⚙️ Uruchamianie wybranych usług
