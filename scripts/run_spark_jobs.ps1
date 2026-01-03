@@ -1,59 +1,53 @@
-Write-Host "Starting Spark streaming jobs..." -ForegroundColor Cyan
+﻿Write-Host "Starting Spark streaming jobs..." -ForegroundColor Cyan
 
-# Install dependencies
-Write-Host "`nInstalling Python dependencies..." -ForegroundColor Yellow
-docker exec -u root spark-master pip install happybase
+function Wait-SparkApp {
+    param([int]$ExpectedCount, [int]$TimeoutSeconds = 60)
+    $elapsed = 0
+    while ($elapsed -lt $TimeoutSeconds) {
+        try {
+            $response = Invoke-RestMethod -Uri "http://localhost:8080/json/" -ErrorAction Stop
+            $currentCount = $response.activeapps.Count
+            if ($currentCount -ge $ExpectedCount) {
+                Write-Host "  Application $ExpectedCount registered" -ForegroundColor Green
+                return $true
+            }
+            Write-Host "  Waiting... $currentCount of $ExpectedCount ready" -ForegroundColor Gray
+        }
+        catch {
+            Write-Host "  Waiting for Spark Master..." -ForegroundColor Gray
+        }
+        Start-Sleep -Seconds 2
+        $elapsed += 2
+    }
+    Write-Host "  Timeout waiting for applications" -ForegroundColor Yellow
+    return $false
+}
+
+Write-Host "`nInstalling Python dependencies and fixing permissions..." -ForegroundColor Yellow
+docker exec -u root spark-master bash -c 'pip install --quiet happybase && mkdir -p /home/spark/.ivy2 /home/spark/.cache && chown -R spark:spark /home/spark'
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Failed to install dependencies" -ForegroundColor Red
     exit 1
 }
 
-Start-Sleep -Seconds 15
+Write-Host "Setup complete, ready to submit jobs" -ForegroundColor Green
 
-# Submit buses job in background
 Write-Host "`nStarting buses streaming job..." -ForegroundColor Yellow
-docker exec -d -u root spark-master /opt/spark/bin/spark-submit `
-    --master spark://spark-master:7077 `
-    --total-executor-cores 1 `
-    --executor-memory 512M `
-    --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.3 `
-    /opt/spark-apps/consume_buses_to_hbase.py
+docker exec -d -u spark spark-master /opt/spark/bin/spark-submit --master spark://spark-master:7077 --total-executor-cores 1 --executor-memory 512M --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.3 /opt/spark-apps/consume_buses_to_hbase.py
+Wait-SparkApp -ExpectedCount 1
 
-Start-Sleep -Seconds 1
+Write-Host "`nStarting trolleys streaming job..." -ForegroundColor Yellow
+docker exec -d -u spark spark-master /opt/spark/bin/spark-submit --master spark://spark-master:7077 --total-executor-cores 1 --executor-memory 512M --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.3 /opt/spark-apps/consume_trolleys_to_hbase.py
+Wait-SparkApp -ExpectedCount 2
 
-# Submit trolleys job in background
-Write-Host "Starting trolleys streaming job..." -ForegroundColor Yellow
-docker exec -d -u root spark-master /opt/spark/bin/spark-submit `
-    --master spark://spark-master:7077 `
-    --total-executor-cores 1 `
-    --executor-memory 512M `
-    --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.3 `
-    /opt/spark-apps/consume_trolleys_to_hbase.py
+Write-Host "`nStarting weather streaming job..." -ForegroundColor Yellow
+docker exec -d -u spark spark-master /opt/spark/bin/spark-submit --master spark://spark-master:7077 --total-executor-cores 1 --executor-memory 512M --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.3 /opt/spark-apps/consume_weather_to_hbase.py
+Wait-SparkApp -ExpectedCount 3
 
-Start-Sleep -Seconds 1
-
-# Submit weather job in background
-Write-Host "Starting weather streaming job..." -ForegroundColor Yellow
-docker exec -d -u root spark-master /opt/spark/bin/spark-submit `
-    --master spark://spark-master:7077 `
-    --total-executor-cores 1 `
-    --executor-memory 512M `
-    --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.3 `
-    /opt/spark-apps/consume_weather_to_hbase.py
-
-Start-Sleep -Seconds 1
-
-# Submit air quality job in background
-Write-Host "Starting air quality streaming job..." -ForegroundColor Yellow
-docker exec -d -u root spark-master /opt/spark/bin/spark-submit `
-    --master spark://spark-master:7077 `
-    --total-executor-cores 1 `
-    --executor-memory 512M `
-    --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.3 `
-    /opt/spark-apps/consume_air_quality_to_hbase.py
-
-Start-Sleep -Seconds 1
+Write-Host "`nStarting air quality streaming job..." -ForegroundColor Yellow
+docker exec -d -u spark spark-master /opt/spark/bin/spark-submit --master spark://spark-master:7077 --total-executor-cores 1 --executor-memory 512M --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.3 /opt/spark-apps/consume_air_quality_to_hbase.py
+Wait-SparkApp -ExpectedCount 4
 
 Write-Host "`nAll streaming jobs submitted!" -ForegroundColor Green
 Write-Host "`nMonitor jobs at:" -ForegroundColor Cyan
