@@ -51,45 +51,62 @@ services:
 
   # --- 4. APACHE NIFI (Ingestion Layer) ---
   nifi:
-    image: apache/nifi:latest
+    image: apache/nifi:1.23.2
     container_name: nifi
     ports:
       - "8443:8443"
     environment:
       - SINGLE_USER_CREDENTIALS_USERNAME=admin
       - SINGLE_USER_CREDENTIALS_PASSWORD=adminadmin123
-    mem_limit: 2g
+    volumes:
+      - nifi_conf:/opt/nifi/nifi-current/conf
+      - nifi_database_repository:/opt/nifi/nifi-current/database_repository
+      - nifi_flowfile_repository:/opt/nifi/nifi-current/flowfile_repository
+      - nifi_content_repository:/opt/nifi/nifi-current/content_repository
+      - nifi_provenance_repository:/opt/nifi/nifi-current/provenance_repository
+      - nifi_state:/opt/nifi/nifi-current/state
+      - nifi_logs:/opt/nifi/nifi-current/logs
+    mem_limit: 1.5g
     networks:
       - bigdata-network
 
   # --- 5. SPARK MASTER (Processing Layer) ---
   spark-master:
-    image: apache/spark:latest
+    image: apache/spark:3.5.3-scala2.12-java17-python3-ubuntu
     container_name: spark-master
     command: /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master
     environment:
-      - SPARK_NO_DAEMONIZE=true
+      - SPARK_MODE=master
+      - SPARK_LOCAL_DIRS=/tmp
+      - HOME=/home/spark
+      - TZ=Europe/Warsaw
+      - SPARK_DAEMON_JAVA_OPTS=-Duser.timezone=Europe/Warsaw
+    volumes:
+      - ./spark:/opt/spark-apps # Mount your scripts
+      - spark_ivy:/home/spark/.ivy2 # Cache packages
     ports:
       - "8080:8080"
       - "7077:7077"
-    mem_limit: 1g
+    mem_limit: 2g
     networks:
       - bigdata-network
 
   # --- 6. SPARK WORKER ---
   spark-worker:
-    image: apache/spark:latest
+    image: apache/spark:3.5.3-scala2.12-java17-python3-ubuntu
     container_name: spark-worker
     command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
     environment:
       - SPARK_NO_DAEMONIZE=true
-      - SPARK_WORKER_MEMORY=1G
-      - SPARK_WORKER_CORES=1
+      - SPARK_WORKER_MEMORY=3G
+      - SPARK_WORKER_CORES=10
+      - HOME=/home/spark
+      - TZ=Europe/Warsaw
     depends_on:
       - spark-master
     volumes:
-      - ./spark_apps:/opt/spark/work-dir
-    mem_limit: 2g
+      - ./spark:/opt/spark-apps
+    mem_limit: 3g
     networks:
       - bigdata-network
 
@@ -105,7 +122,7 @@ services:
       - "9000:9000"
     volumes:
       - hadoop_namenode:/hadoop/dfs/name
-    mem_limit: 1g
+    mem_limit: 512m
     networks:
       - bigdata-network
 
@@ -133,6 +150,8 @@ services:
       - "16000:16000" # HBase Master
       - "16020:16020" # HBase RegionServer
       - "16030:16030" # HBase RegionServer Info
+      - "9090:9090" # HBase Thrift Server
+      - "9095:9095" # HBase Thrift2 Server
       - "2888:2888" # HBase Zookeeper peer
       - "3888:3888" # HBase Zookeeper leader
     depends_on:
@@ -150,3 +169,11 @@ networks:
 volumes:
   hadoop_namenode:
   hadoop_datanode:
+  nifi_conf:
+  nifi_database_repository:
+  nifi_flowfile_repository:
+  nifi_content_repository:
+  nifi_provenance_repository:
+  nifi_state:
+  nifi_logs:
+  spark_ivy:
