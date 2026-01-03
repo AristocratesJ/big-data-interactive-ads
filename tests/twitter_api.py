@@ -110,6 +110,10 @@ print(f"DEBUG queryType: {querystring.get('queryType')}")
 print(f"DEBUG query: {querystring.get('query')}")
 
 try:
+    req = requests.Request('GET', TWITTER_BASE_URL, headers=headers, params=querystring)
+    prepared = req.prepare()
+    print(f"\nREQUEST URL: {prepared.url}\n")
+    
     response = requests.get(
         TWITTER_BASE_URL,
         headers=headers,
