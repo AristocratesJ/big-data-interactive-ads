@@ -147,7 +147,24 @@ Teraz sprawdź czy zadania na Spark'u się odpaliły http://localhost:8080. Pocz
 .\scripts\run_spark_jobs.ps1
 ```
 
-Powinieneś wkrótce zobaczyć wszystkie zadania aktywne. Jeśli nie skontaktuj się z Barteczkiem
+Powinieneś wkrótce zobaczyć wszystkie zadania aktywne. Jeśli nie skontaktuj się z Barteczkiem.
+
+#### 8. Testuj
+
+Zaimportuj template nifi i uruchom. Poczekaj chwile. Następnie uruchom shell HBase:
+
+```powershell
+docker-compose exec hbase hbase shell
+```
+
+Sprawdź czy dane zostają wrzucone do tabeli:
+
+```hbase
+list
+scan 'transport_events', {LIMIT => 1}
+scan 'air_quality_forecast', {LIMIT => 1}
+scan 'weather_forecast', {LIMIT => 1}
+```
 
 ## ⚙️ Uruchamianie wybranych usług
 
