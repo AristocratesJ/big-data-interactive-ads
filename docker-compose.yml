@@ -31,6 +31,17 @@ services:
     mem_limit: 1g
     networks:
       - bigdata-network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "kafka-broker-api-versions",
+          "--bootstrap-server=localhost:9092",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
 
   # --- 3. KAFKA UI (Monitoring) ---
   kafka-ui:
@@ -69,6 +80,16 @@ services:
     mem_limit: 1.5g
     networks:
       - bigdata-network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "grep -q 'Started Application Controller' /opt/nifi/nifi-current/logs/nifi-app.log 2>/dev/null || exit 1",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 15
+      start_period: 90s
 
   # --- 5. SPARK MASTER (Processing Layer) ---
   spark-master:
@@ -161,6 +182,38 @@ services:
       - bigdata-network
     environment:
       - HBASE_MANAGES_ZK=false
+    healthcheck:
+      test: ["CMD-SHELL", "echo 'status' | hbase shell -n | grep -q 'active'"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 90s
+
+  # --- 10. AUTO-SETUP SERVICE (Runs once after all services are healthy) ---
+  setup:
+    image: python:3.12-slim
+    container_name: bigdata-setup
+    depends_on:
+      kafka:
+        condition: service_healthy
+      hbase:
+        condition: service_healthy
+      nifi:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    working_dir: /app
+    networks:
+      - bigdata-network
+    command: >
+      bash -c "
+        echo '===== Installing Python dependencies =====' &&
+        pip install --quiet --root-user-action=ignore kafka-python happybase requests urllib3 &&
+        echo '===== Running automated setup =====' &&
+        python scripts/setup_all.py &&
+        echo '===== Setup complete! ====='
+      "
+    restart: "no"
 
 networks:
   bigdata-network:
