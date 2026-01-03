@@ -124,6 +124,31 @@ Po uruchomieniu, sprawdź czy wszystkie interfejsy są dostępne:
 
 ---
 
+#### 6. Kafka i HBase
+
+Stwórz tabele HBase i tematy Kafka:
+
+```powershell
+.\scripts\current_setup_windows.ps1
+```
+
+#### 7. Spark
+
+Rozpocznij zadania ze Spark
+
+```powershell
+.\scripts\run_spark_jobs.ps1
+```
+
+Teraz sprawdź czy zadania na Spark'u się odpaliły http://localhost:8080. Poczekaj 30 sek. Jeśli końcowo nie zobaczysz wszystkich 4 odpalonych zadań spark (sekcja Running Applications) wykonaj:
+
+```powershell
+.\scripts\stop_spark_jobs.ps1
+.\scripts\run_spark_jobs.ps1
+```
+
+Powinieneś wkrótce zobaczyć wszystkie zadania aktywne. Jeśli nie skontaktuj się z Barteczkiem
+
 ## ⚙️ Uruchamianie wybranych usług
 
 Ze względu na ograniczenia pamięci RAM (16GB), możesz uruchamiać tylko wybrane usługi zamiast całego stosu.
