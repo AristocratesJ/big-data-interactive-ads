@@ -96,9 +96,11 @@ def create_sentiment_table():
     print(f"\nCreating table '{table_name}'...")
 
     families = {
+        "tweet_info": dict(max_versions=1, compression="GZ", bloom_filter_type="ROW"),
         "content": dict(max_versions=1, compression="GZ", bloom_filter_type="ROW"),
         "engagement": dict(max_versions=1, compression="GZ", bloom_filter_type="ROW"),
         "author": dict(max_versions=1, compression="GZ", bloom_filter_type="ROW"),
+        "sentiment": dict(max_versions=1, compression="GZ", bloom_filter_type="ROW"),
         "metadata": dict(max_versions=1, compression="GZ", bloom_filter_type="ROW"),
     }
 

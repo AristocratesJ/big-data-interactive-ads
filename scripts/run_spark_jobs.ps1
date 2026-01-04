@@ -49,6 +49,10 @@ Write-Host "`nStarting air quality streaming job..." -ForegroundColor Yellow
 docker exec -d -u spark spark-master /opt/spark/bin/spark-submit --master spark://spark-master:7077 --total-executor-cores 1 --executor-memory 512M --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.3 /opt/spark-apps/consume_air_quality_to_hbase.py
 Wait-SparkApp -ExpectedCount 4
 
+Write-Host "`nStarting Twitter sentiment streaming job..." -ForegroundColor Yellow
+docker exec -d -u spark spark-master /opt/spark/bin/spark-submit --master spark://spark-master:7077 --total-executor-cores 1 --executor-memory 512M --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.3 /opt/spark-apps/consume_sentiment_to_hbase.py
+Wait-SparkApp -ExpectedCount 5
+
 Write-Host "`nAll streaming jobs submitted!" -ForegroundColor Green
 Write-Host "`nMonitor jobs at:" -ForegroundColor Cyan
 Write-Host "   - Spark UI: http://localhost:8080" -ForegroundColor White

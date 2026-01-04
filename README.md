@@ -25,7 +25,41 @@ Stworzenie systemu do analizy pogody, ruchu drogowego i sentymentu w Warszawie w
 
 ---
 
-## 📦 Instalacja
+## � Konfiguracja Twitter API
+
+Aby pobierać tweety z Warszawy, musisz skonfigurować klucz API Twittera.
+
+### 1. Utwórz plik `.env`
+
+W głównym katalogu projektu utwórz plik `.env` z kluczem API:
+
+```env
+TWITTER_API_KEY=twój_klucz_api_tutaj
+```
+
+### 2. Skąd wziąć klucz API?
+
+Projekt używa zewnętrznego API Twitter (`api.twitterapi.io`). Aby uzyskać klucz:
+
+1. Zarejestruj się na platformie dostawcy API
+2. Wygeneruj klucz API
+3. Skopiuj klucz do pliku `.env`
+
+### 3. Weryfikacja konfiguracji
+
+Po uruchomieniu systemu, NiFi automatycznie użyje klucza z pliku `.env` do uwierzytelniania żądań do Twitter API.
+
+Możesz przetestować połączenie:
+
+```powershell
+python tests/twitter_api.py
+```
+
+> **Uwaga**: Bez prawidłowego klucza API, pobieranie tweetów nie będzie działać, ale pozostałe źródła danych (ZTM, pogoda, jakość powietrza) będą funkcjonować normalnie.
+
+---
+
+## �📦 Instalacja
 
 ### Wymagania systemowe
 
@@ -174,18 +208,25 @@ To uruchomi wszystkie procesory NiFi, które będą pobierać dane z:
 .\scripts\run_spark_jobs.ps1
 ```
 
-To uruchomi 4 zadania Spark, które przetwarzają dane z Kafka do HBase:
+To uruchomi 5 zadań Spark, które przetwarzają dane z Kafka do HBase:
+
+- Buses → HBase transport_events
+- Trolleys → HBase transport_events
+- Weather → HBase weather_forecast
+- Air Quality → HBase air_quality_forecast
+- Twitter Sentiment → HBase tweets (with simulated sentiment 0-9)
 
 Teraz sprawdź czy zadania na Spark'u się odpaliły: http://localhost:8080
 
-Poczekaj 30 sek. Powinieneś zobaczyć **4 aktywne aplikacje** w sekcji "Running Applications":
+Poczekaj 30 sek. Powinieneś zobaczyć **5 aktywnych aplikacji** w sekcji "Running Applications":
 
 1. `consume_buses_to_hbase`
 2. `consume_trolleys_to_hbase`
 3. `consume_weather_to_hbase`
 4. `consume_air_quality_to_hbase`
+5. `consume_sentiment_to_hbase`
 
-Jeśli nie zobaczysz wszystkich 4 zadań, zrestartuj:
+Jeśli nie zobaczysz wszystkich 5 zadań, zrestartuj:
 
 ```powershell
 .\scripts\stop_spark_jobs.ps1
