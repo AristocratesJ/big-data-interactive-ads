@@ -27,7 +27,8 @@ def create_kafka_topics():
     print("=" * 70)
 
     # Detect if running in Docker
-    is_docker = os.path.exists('/.dockerenv') or os.environ.get('DOCKER_CONTAINER') == 'true'
+    is_docker = os.path.exists(
+        '/.dockerenv') or os.environ.get('DOCKER_CONTAINER') == 'true'
     bootstrap_server = "kafka:29092" if is_docker else "localhost:9092"
 
     # Connect to Kafka
@@ -75,7 +76,8 @@ def create_kafka_topics():
             num_partitions=2,
             replication_factor=1,
             topic_configs={
-                "retention.ms": "172800000",  # 48 hours (forecasts are less frequent)
+                # 48 hours (forecasts are less frequent)
+                "retention.ms": "172800000",
                 "compression.type": "snappy",
                 "cleanup.policy": "delete",
             },
@@ -100,55 +102,13 @@ def create_kafka_topics():
                 "cleanup.policy": "delete",
             },
         ),
-        # ===== PROCESSED DATA TOPICS (from Spark) =====
-        NewTopic(
-            name="transport-processed",
-            num_partitions=3,
-            replication_factor=1,
-            topic_configs={
-                "retention.ms": "86400000",  # 24 hours
-                "compression.type": "snappy",
-                "cleanup.policy": "delete",
-            },
-        ),
-        NewTopic(
-            name="weather-processed",
-            num_partitions=2,
-            replication_factor=1,
-            topic_configs={
-                "retention.ms": "172800000",  # 48 hours
-                "compression.type": "snappy",
-                "cleanup.policy": "delete",
-            },
-        ),
-        NewTopic(
-            name="sentiment-processed",
-            num_partitions=2,
-            replication_factor=1,
-            topic_configs={
-                "retention.ms": "86400000",  # 24 hours
-                "compression.type": "snappy",
-                "cleanup.policy": "delete",
-            },
-        ),
         # ===== DECISION TOPICS (final output) =====
         NewTopic(
-            name="ad-placement-decisions",
+            name="ad-decisions",
             num_partitions=1,  # Single partition for ordered decisions
             replication_factor=1,
             topic_configs={
                 "retention.ms": "604800000",  # 7 days (keep decisions longer)
-                "compression.type": "snappy",
-                "cleanup.policy": "delete",
-            },
-        ),
-        # ===== MONITORING TOPICS =====
-        NewTopic(
-            name="data-quality-alerts",
-            num_partitions=1,
-            replication_factor=1,
-            topic_configs={
-                "retention.ms": "604800000",  # 7 days
                 "compression.type": "snappy",
                 "cleanup.policy": "delete",
             },

@@ -77,7 +77,7 @@ services:
       - nifi_provenance_repository:/opt/nifi/nifi-current/provenance_repository
       - nifi_state:/opt/nifi/nifi-current/state
       - nifi_logs:/opt/nifi/nifi-current/logs
-    mem_limit: 1.5g
+    mem_limit: 2g
     networks:
       - bigdata-network
     healthcheck:
@@ -93,7 +93,9 @@ services:
 
   # --- 5. SPARK MASTER (Processing Layer) ---
   spark-master:
-    image: apache/spark:3.5.3-scala2.12-java17-python3-ubuntu
+    build:
+      context: ./spark
+      dockerfile: Dockerfile
     container_name: spark-master
     command: /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master
     environment:
@@ -105,21 +107,24 @@ services:
     volumes:
       - ./spark:/opt/spark-apps # Mount your scripts
       - spark_ivy:/home/spark/.ivy2 # Cache packages
+      - ./logs:/opt/logs # Centralized logs
     ports:
       - "8080:8080"
       - "7077:7077"
-    mem_limit: 2g
+    mem_limit: 3.5g
     networks:
       - bigdata-network
 
   # --- 6. SPARK WORKER ---
   spark-worker:
-    image: apache/spark:3.5.3-scala2.12-java17-python3-ubuntu
+    build:
+      context: ./spark
+      dockerfile: Dockerfile
     container_name: spark-worker
     command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
     environment:
       - SPARK_NO_DAEMONIZE=true
-      - SPARK_WORKER_MEMORY=3G
+      - SPARK_WORKER_MEMORY=4G
       - SPARK_WORKER_CORES=10
       - HOME=/home/spark
       - TZ=Europe/Warsaw
@@ -127,7 +132,7 @@ services:
       - spark-master
     volumes:
       - ./spark:/opt/spark-apps
-    mem_limit: 3g
+    mem_limit: 3.5g
     networks:
       - bigdata-network
 
