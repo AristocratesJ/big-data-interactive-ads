@@ -21,7 +21,6 @@ import happybase
 # Initialize Spark Session
 spark = (
     SparkSession.builder.appName("ZTM Trolleys to HBase")
-    .config("spark.jars.packages", "org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0")
     .config("spark.sql.session.timeZone", "Europe/Warsaw")
     .getOrCreate()
 )

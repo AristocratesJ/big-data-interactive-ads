@@ -7,21 +7,22 @@ Stworzenie systemu do analizy pogody, ruchu drogowego i sentymentu w Warszawie w
 - Wykrywanie korków
 - Analizę skuteczności pogody
 - Analizę tweetów pod kątem negatywnego sentymentu
-- Całościowe wykorzystanie analiz w celu wybrania miejsca i czasu na wyświetlanie reklam
+- **Decyzje Reklamowe (Ad Decision Engine)**: Automatyczne podejmowanie decyzji o wyświetleniu reklamy "na pocieszenie" (kampania eskapistyczna) w oparciu o złą pogodę, korki i negatywne nastroje społeczne.
 
 ---
 
 ## 🛠️ Stos technologiczny
 
-| Technologia      | Wersja | Zastosowanie                         | Port       |
-| ---------------- | ------ | ------------------------------------ | ---------- |
-| **Apache Kafka** | 7.4.0  | Buforowanie i streaming danych       | 9092       |
-| **Kafka UI**     | latest | Interfejs do monitorowania Kafka     | 8090       |
-| **Apache NiFi**  | latest | Pobieranie i preprocessing danych    | 8443       |
-| **Apache Spark** | latest | Przetwarzanie danych i analityka     | 8080, 7077 |
-| **Hadoop HDFS**  | latest | Długoterminowe przechowywanie danych | 9870, 9000 |
-| **HBase**        | latest | Szybki dostęp do danych              | 16010      |
-| **Zookeeper**    | 7.4.0  | Koordynacja usług rozproszonych      | 2181       |
+| Technologia      | Wersja   | Zastosowanie                         | Port       |
+| ---------------- | -------- | ------------------------------------ | ---------- |
+| **Apache Kafka** | 7.4.0    | Buforowanie i streaming danych       | 9092       |
+| **Kafka UI**     | latest   | Interfejs do monitorowania Kafka     | 8090       |
+| **Apache NiFi**  | latest   | Pobieranie i preprocessing danych    | 8443       |
+| **Apache Spark** | latest   | Przetwarzanie danych i analityka     | 8080, 7077 |
+| **Hadoop HDFS**  | latest   | Długoterminowe przechowywanie danych | 9870, 9000 |
+| **HBase**        | latest   | Szybki dostęp do danych              | 16010      |
+| **Apache Hive**  | Embedded | Hurtownia danych (via Spark)         | -          |
+| **Zookeeper**    | 7.4.0    | Koordynacja usług rozproszonych      | 2181       |
 
 ---
 
@@ -63,7 +64,7 @@ python tests/twitter_api.py
 
 ### Wymagania systemowe
 
-- **System operacyjny**: Windows 10/11 z WSL 2 (lub Linux/macOS)
+- **System operacyjny**: Windows 10/11 z WSL 2, Linux lub macOS
 - **RAM**: 16GB
 - **Dysk**: ~10GB wolnego miejsca
 - **Docker Desktop**: najnowsza wersja
@@ -192,6 +193,14 @@ docker-compose logs -f setup
 
 **7.1. Uruchom przepływy NiFi** (pobieranie danych z API):
 
+#### macOS / Linux
+
+```bash
+./scripts/run_nifi_flows.sh
+```
+
+#### Windows (PowerShell)
+
 ```powershell
 .\scripts\run_nifi_flows.ps1
 ```
@@ -204,29 +213,45 @@ To uruchomi wszystkie procesory NiFi, które będą pobierać dane z:
 
 **7.2. Uruchom zadania Spark** (przetwarzanie danych):
 
+#### macOS / Linux
+
+```bash
+./scripts/run_spark_jobs.sh
+```
+
+#### Windows (PowerShell)
+
 ```powershell
 .\scripts\run_spark_jobs.ps1
 ```
 
-To uruchomi 5 zadań Spark, które przetwarzają dane z Kafka do HBase:
+To uruchomi:
 
-- Buses → HBase transport_events
-- Trolleys → HBase transport_events
-- Weather → HBase weather_forecast
-- Air Quality → HBase air_quality_forecast
-- Twitter Sentiment → HBase tweets (with simulated sentiment 0-9)
+1. **5 zadań Spark Streaming** (przetwarzanie danych z Kafka do HBase):
+   - Buses
+   - Trolleys
+   - Weather
+   - Air Quality
+   - Twitter Sentiment
+2. **Ad Campaign Manager** (niezależny proces Python podejmujący decyzje)
+3. **Hive Archiver Scheduler** (automatyczny proces w tle)
 
 Teraz sprawdź czy zadania na Spark'u się odpaliły: http://localhost:8080
 
-Poczekaj 30 sek. Powinieneś zobaczyć **5 aktywnych aplikacji** w sekcji "Running Applications":
+Poczekaj 30 sek. Powinieneś zobaczyć **5 aktywnych aplikacji streamingowych** w sekcji "Running Applications".
 
-1. `consume_buses_to_hbase`
-2. `consume_trolleys_to_hbase`
-3. `consume_weather_to_hbase`
-4. `consume_air_quality_to_hbase`
-5. `consume_sentiment_to_hbase`
+> **Uwaga**: `ad_campaign_manager.py` oraz `archive_to_hive.py` (scheduler) działają jako procesy w tle i nie zawsze są widoczne na głównej liście aplikacji streamingowych w Spark UI (chyba że w momencie wykonywania batcha).
 
-Jeśli nie zobaczysz wszystkich 5 zadań, zrestartuj:
+Jeśli nie zobaczysz zadań, zrestartuj:
+
+#### macOS / Linux
+
+```bash
+./scripts/stop_spark_jobs.sh
+./scripts/run_spark_jobs.sh
+```
+
+#### Windows (PowerShell)
 
 ```powershell
 .\scripts\stop_spark_jobs.ps1
@@ -235,11 +260,23 @@ Jeśli nie zobaczysz wszystkich 5 zadań, zrestartuj:
 
 **Zatrzymywanie przepływów danych:**
 
+#### macOS / Linux
+
+```bash
+# Zatrzymaj NiFi procesory
+./scripts/stop_nifi_flows.sh
+
+# Zatrzymaj zadania Spark + Ad Manager
+./scripts/stop_spark_jobs.sh
+```
+
+#### Windows (PowerShell)
+
 ```powershell
 # Zatrzymaj NiFi procesory
 .\scripts\stop_nifi_flows.ps1
 
-# Zatrzymaj zadania Spark
+# Zatrzymaj zadania Spark + Ad Manager
 .\scripts\stop_spark_jobs.ps1
 ```
 
@@ -261,6 +298,7 @@ scan 'transport_events', {LIMIT => 1}
 scan 'air_quality_forecast', {LIMIT => 1}
 scan 'weather_forecast', {LIMIT => 1}
 scan 'tweets', {LIMIT => 1}
+scan 'ad_decisions', {LIMIT => 1}
 exit
 ```
 
@@ -274,8 +312,46 @@ Otwórz http://localhost:8090 i sprawdź tematy:
 - `weather-forecast-raw` - dane pogodowe
 - `air-quality-raw` - dane o jakości powietrza
 - `tweets-warsaw-raw` - tweety z Warszawy
+- `ad-decisions` - wyniki decyzji reklamowych
 
 ---
+
+## Analityka i Archiwizacja (Hive)
+
+System posiada dedykowaną warstwę analityczną opartą o **Apache Hive** (wbudowany w Spark), która archiwizuje decyzje reklamowe na HDFS w formacie Parquet.
+
+### 1. Architektura
+
+- **Decyzje (Real-time)**: `ad_campaign_manager.py` wysyła decyzje do **Kafka** (`ad-decisions`) i **HBase**.
+- **Archiwizacja (Batch)**: Job `archive_to_hive.py` uruchamiany okresowo przenosi dane z HBase do **Hive** (`ad_decisions_archive`) na HDFS.
+
+### 2. Monitorowanie Archiwizacji
+
+Job archiwizacyjny działa automatycznie w tle. Możesz sprawdzić jego status przeglądając logi w kontenerze:
+
+#### macOS / Linux / Windows
+
+```bash
+docker exec spark-master tail -f /opt/spark-apps/archive.log
+```
+
+### 3. Weryfikacja Danych w Hive
+
+Możesz sprawdzić zarchiwizowane dane za pomocą przygotowanego skryptu:
+
+#### macOS / Linux
+
+```bash
+docker exec -u root spark-master /opt/spark/bin/spark-submit /opt/spark-apps/check_hive_data.py
+```
+
+#### Windows (PowerShell)
+
+```powershell
+docker exec -u root spark-master /opt/spark/bin/spark-submit /opt/spark-apps/check_hive_data.py
+```
+
+Możesz również przeglądać pliki fizycznie na HDFS przez przeglądarkę: http://localhost:9870/explorer.html#/user/hive/warehouse/ad_decisions_archive
 
 ## 🔄 Podsumowanie workflow
 
@@ -289,11 +365,22 @@ Otwórz http://localhost:8090 i sprawdź tematy:
 
 **Ponowne uruchomienie po zatrzymaniu:**
 
+#### macOS / Linux
+
+```bash
+docker-compose down              # Zatrzymaj wszystko
+docker-compose up -d             # Uruchom ponownie
+./scripts/run_nifi_flows.sh      # Uruchom NiFi
+./scripts/run_spark_jobs.sh      # Uruchom Spark
+```
+
+#### Windows (PowerShell)
+
 ```powershell
 docker-compose down              # Zatrzymaj wszystko
-docker-compose up -d             # Uruchom ponownie (auto-konfiguracja działa!)
-.\scripts\run_nifi_flows.ps1    # Uruchom NiFi
-.\scripts\run_spark_jobs.ps1    # Uruchom Spark
+docker-compose up -d             # Uruchom ponownie
+.\scripts\run_nifi_flows.ps1     # Uruchom NiFi
+.\scripts\run_spark_jobs.ps1     # Uruchom Spark
 ```
 
 ## ⚙️ Uruchamianie wybranych usług

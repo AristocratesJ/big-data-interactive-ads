@@ -24,7 +24,7 @@ from pyspark.sql.types import (
     IntegerType,
 )
 import happybase
-import random
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 
 # Define schema for Twitter API response
@@ -128,8 +128,10 @@ final_df = tweets_df.select(
     col("tweet.lang").alias("lang"),
     # Metadata
     date_format(col("kafka_ts"), "yyyy-MM-dd").alias("data_acquisition_date"),
-    date_format(current_timestamp(), "yyyy-MM-dd HH:mm:ss").alias("ingestion_timestamp"),
-    date_format(current_timestamp(), "yyyy-MM-dd HH:mm:ss").alias("analysis_timestamp"),
+    date_format(current_timestamp(),
+                "yyyy-MM-dd HH:mm:ss").alias("ingestion_timestamp"),
+    date_format(current_timestamp(),
+                "yyyy-MM-dd HH:mm:ss").alias("analysis_timestamp"),
 )
 
 print("✅ Data transformation pipeline ready")
@@ -158,8 +160,20 @@ def write_to_hbase(batch_df, batch_id):
         for row in rows:
             row_key = row["row_key"]
 
-            # Simulate sentiment analysis (random score 0-9)
-            sentiment_score = random.randint(0, 9)
+            # Calculate sentiment
+            analyzer = SentimentIntensityAnalyzer()
+            text = str(row["text"]) if row["text"] else ""
+
+            # Get compound score usually between -1.0 (most negative) and 1.0 (most positive)
+            compound_score = analyzer.polarity_scores(text)["compound"]
+
+            # Map -1.0...1.0 to 0...9 scale
+            # -1.0 -> 0
+            # 0.0 -> 4.5 -> 4 or 5
+            # 1.0 -> 9
+            sentiment_score = int((compound_score + 1) * 4.5)
+            # Ensure boundaries
+            sentiment_score = max(0, min(9, sentiment_score))
 
             # Helper function for safe string conversion
             def safe_str(value):
@@ -174,8 +188,9 @@ def write_to_hbase(batch_df, batch_id):
                 # Column family: content
                 b"content:text": safe_str(row["text"]).encode("utf-8"),
                 b"content:hashtags": safe_str(row["hashtags"]).encode("utf-8"),
-                # Column family: sentiment (SIMULATED)
+                # Column family: sentiment
                 b"sentiment:score": str(sentiment_score).encode("utf-8"),
+                b"sentiment:compound_score": str(compound_score).encode("utf-8"),
                 b"sentiment:analysis_timestamp": safe_str(row["analysis_timestamp"]).encode("utf-8"),
                 # Column family: metadata
                 b"metadata:data_acquisition_date": safe_str(row["data_acquisition_date"]).encode("utf-8"),
