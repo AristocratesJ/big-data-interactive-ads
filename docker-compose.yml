@@ -31,6 +31,17 @@ services:
     mem_limit: 1g
     networks:
       - bigdata-network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "kafka-broker-api-versions",
+          "--bootstrap-server=localhost:9092",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
 
   # --- 3. KAFKA UI (Monitoring) ---
   kafka-ui:
@@ -66,13 +77,25 @@ services:
       - nifi_provenance_repository:/opt/nifi/nifi-current/provenance_repository
       - nifi_state:/opt/nifi/nifi-current/state
       - nifi_logs:/opt/nifi/nifi-current/logs
-    mem_limit: 1.5g
+    mem_limit: 2g
     networks:
       - bigdata-network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "grep -q 'Started Application Controller' /opt/nifi/nifi-current/logs/nifi-app.log 2>/dev/null || exit 1",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 15
+      start_period: 90s
 
   # --- 5. SPARK MASTER (Processing Layer) ---
   spark-master:
-    image: apache/spark:3.5.3-scala2.12-java17-python3-ubuntu
+    build:
+      context: ./spark
+      dockerfile: Dockerfile
     container_name: spark-master
     command: /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master
     environment:
@@ -84,21 +107,24 @@ services:
     volumes:
       - ./spark:/opt/spark-apps # Mount your scripts
       - spark_ivy:/home/spark/.ivy2 # Cache packages
+      - ./logs:/opt/logs # Centralized logs
     ports:
       - "8080:8080"
       - "7077:7077"
-    mem_limit: 2g
+    mem_limit: 3.5g
     networks:
       - bigdata-network
 
   # --- 6. SPARK WORKER ---
   spark-worker:
-    image: apache/spark:3.5.3-scala2.12-java17-python3-ubuntu
+    build:
+      context: ./spark
+      dockerfile: Dockerfile
     container_name: spark-worker
     command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
     environment:
       - SPARK_NO_DAEMONIZE=true
-      - SPARK_WORKER_MEMORY=3G
+      - SPARK_WORKER_MEMORY=4G
       - SPARK_WORKER_CORES=10
       - HOME=/home/spark
       - TZ=Europe/Warsaw
@@ -106,7 +132,7 @@ services:
       - spark-master
     volumes:
       - ./spark:/opt/spark-apps
-    mem_limit: 3g
+    mem_limit: 3.5g
     networks:
       - bigdata-network
 
@@ -161,6 +187,40 @@ services:
       - bigdata-network
     environment:
       - HBASE_MANAGES_ZK=false
+    healthcheck:
+      test: ["CMD-SHELL", "echo 'status' | hbase shell -n | grep -q 'active'"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 90s
+
+  # --- 10. AUTO-SETUP SERVICE (Runs once after all services are healthy) ---
+  setup:
+    image: python:3.12-slim
+    container_name: bigdata-setup
+    depends_on:
+      kafka:
+        condition: service_healthy
+      hbase:
+        condition: service_healthy
+      nifi:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    working_dir: /app
+    env_file:
+      - .env
+    networks:
+      - bigdata-network
+    command: >
+      bash -c "
+        echo '===== Installing Python dependencies =====' &&
+        pip install --quiet --root-user-action=ignore kafka-python happybase requests urllib3 &&
+        echo '===== Running automated setup =====' &&
+        python scripts/setup_all.py &&
+        echo '===== Setup complete! ====='
+      "
+    restart: "no"
 
 networks:
   bigdata-network:

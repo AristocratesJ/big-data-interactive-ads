@@ -1,0 +1,289 @@
+\documentclass[11pt, a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[polish]{babel}
+\usepackage{geometry}
+\geometry{a4paper, margin=1in}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage{verbatim}
+\usepackage{hyperref}
+\usepackage{tabularx}
+\usepackage{float}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    urlcolor=blue,
+    pdftitle={Konspekt Projektu Big Data},
+}
+
+% --- STRONA TYTUŁOWA ---
+\title{Konspekt Projektu: Analiza Wpływu Ruchu Drogowego na Jakość Powietrza w Warszawie}
+\author{
+    Michał Iwaniuk \\
+    Mateusz Jarosz \\
+    Bartosz Jezierski
+}
+\date{\today}
+
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+\section{Wprowadzenie}
+\subsection{Dane}
+
+\begin{itemize}
+    \item \textbf{API ZTM}: wykrywanie korków na podstawie niskiej prędkości autobusów w centrum.
+    \item \textbf{API Open-Meteo}: analiza warunków pogodowych (deszcz, niska temperatura, wysokie stężenie PM2.5).
+    \item \textbf{API Twitter}: analiza tweetów pod kątem słów kluczowych o negatywnym zabarwieniu (np. złość, zmęczenie, ``korki'', ``smog'').
+\end{itemize}
+
+\subsection{Cel biznesowy}
+
+\textbf{System Dynamicznej Reklamy}\\Automatyczne uruchamianie agresywnych kampanii reklamowych ``na pocieszenie'' na ekranach w autobusach lub w aplikacjach użytkowników znajdujących się w dotkniętych strefach.\\Sprzedaż emocjonalna: użytkownik jest zmęczony, marznie i stoi w korku — reklama oferuje natychmiastowe rozwiązanie.
+
+\subsection{Przykład: Eskapizm Natychmiastowy (``Zabierz mnie stąd'')}
+
+\textbf{Reklama biura podróży, tanich linii lotniczych:}\\
+\textit{„W Warszawie szaro i 4°C. Na Teneryfie teraz 26°C i słońce. Loty od 200 zł.”}
+
+
+
+\section{Wymagania}
+
+\begin{table}[H]
+\centering
+\begin{tabularx}{\textwidth}{p{5.5cm} X X}
+\toprule
+\textbf{Wymaganie (Definicja)} & \textbf{Implementacja} & \textbf{Referencja w Raporcie} \\
+\midrule
+
+Pozyskanie danych z co najmniej dwóch źródeł & 
+Wybrane źródła:
+\begin{itemize}
+    \item 1. API ZTM Warszawa
+    \item 2. API Open-Meteo
+    \item 3. API Twitter
+\end{itemize}
+& \hyperref[sec:data_sources]{Sekcja 3} (Źródła Danych) \\
+\midrule
+
+Zaprojektowanie i wykonanie sposobu składowania danych (np. format, tabele Apache Hive) & & \\
+\hline
+
+Zaprojektowanie i oprogramowanie komponentów do przetwarzania danych (konwersja, filtrowanie, analiza) & & \\
+\hline
+
+Automatyzacja przepływu danych (co najmniej Apache NiFi) & & \\
+\hline
+
+Składowanie danych (co najmniej Apache Hadoop i/lub Apache Hive) & & \\
+\hline
+
+Składowanie danych (co najmniej jedna wybrana platforma NoSQL, np. HBase) & & \\
+\hline
+
+Wsadowa analiza danych (co najmniej Apache Spark) & & \\
+\hline
+
+Utrzymanie kodu w repozytorium GIT (np. GitHub) & & \\
+\hline
+
+Przygotowanie testów funkcjonalnych & & \\
+\bottomrule
+\end{tabularx}
+\caption{Tabela wymagań projektu (do uzupełniania).}
+\end{table}
+
+
+
+\section{Źródła Danych}
+\label{sec:data_sources}
+
+\subsection{API ZTM Warszawa}
+\paragraph{Dostępność Danych:} Publiczne API Gminy Miejskiej Warszawa, dostępne pod adresem \url{https://api.um.warszawa.pl/}. Wymagany jest klucz API.
+\paragraph{Format:} JSON.
+\paragraph{Zawartość:} Dane w czasie rzeczywistym (aktualizacja 1 na minute) o lokalizacji pojazdów publicznych (autobusy, tramwaje) - szerokość i długość geograficzna, numer linii, numer taborowy, numer brygady pojazdu, czas zarejestrowania pozycji.
+\paragraph{Przykład Pozyskania:} (Przykład dla lokalizacji wszystkich autobusów)
+\begin{verbatim}
+# Zapytanie o pozycje wszystkich autobusów (type=1)
+curl -X GET "https://api.um.warszawa.pl/api/action/busestrams_get/ \
+?resource_id=f2e5503e-927d-4ad3-9500-4ab9e55deb59 \
+&type=1&apikey=TWOJ_KLUCZ_API"
+\end{verbatim}
+
+\subsection{API Open-Meteo Weather Forecast}
+\paragraph{Dostępność Danych:} Publiczne API, darmowe do użytku niekomercyjnego. Dostępne pod adresem \url{https://open-meteo.com}. Nie wymaga klucza API.
+\paragraph{Format:} JSON.
+\paragraph{Zawartość:} Dane meteorologiczne (prognozy oraz dane historyczne/bieżące) niezbędne do określenia "komfortu" przebywania na zewnątrz. Kluczowe atrybuty to: temperatura powietrza (2 m nad ziemią), opady deszczu (mm), zachmurzenie (\%) oraz kod pogody (WMO code).
+\paragraph{Przykład Pozyskania:} (Przykład pobrania danych godzinowych dla Warszawy obejmujących temperaturę, deszcz i zachmurzenie)
+\begin{verbatim}
+# Zapytanie o temperaturę, deszcz i zachmurzenie (historia + bieżące)
+curl -X GET "https://api.open-meteo.com/v1/forecast?latitude=52.2297&longitude=21.0122 \
+&hourly=temperature_2m,rain,cloud_cover,weather_code \
+&start_date=2025-11-14&end_date=2025-11-17"
+\end{verbatim}
+
+\subsection{API Twitter (twitterapi.io)}
+\paragraph{Dostępność Danych:} Komercyjne API (wrapper dla serwisu X/Twitter), dostępne pod adresem \url{https://twitterapi.io/}. Wymagany jest klucz API.
+\paragraph{Format:} JSON.
+\paragraph{Zawartość:} Dane tekstowe (tweety) wyszukiwane na podstawie słów kluczowych o negatywnym zabarwieniu emocjonalnym (np. "zmęczony", "korek", "smog", "zimno") w określonej lokalizacji. Odpowiedź API zawiera treść wpisu, identyfikator autora, czas utworzenia oraz metadane geolokalizacyjne. Dane te posłużą do oceny nastroju społecznego w danym oknie czasowym.
+\paragraph{Przykład Pozyskania:} (Przykład wyszukiwania tweetów o "zmęczeniu", "korkach" lub "smogu" w promieniu 20 km od Warszawy)
+\begin{verbatim}
+import requests 
+
+url = "https://api.twitterapi.io/twitter/tweet/advanced_search" 
+
+querystring = {"queryType":"Latest","query":"(zmeczony OR korek OR smog OR zimno) near:Warsaw within:50km"}
+
+headers = {"X-API-Key": "API_KEY"}
+
+response = requests.get(url, headers=headers, params=querystring)
+
+print(response.json())
+\end{verbatim}
+
+
+
+\section{Hadoop Batch Layer}
+
+Poniżej zdefiniowano docelowy format składowania danych w Batch Layer (HDFS) w konwencji CSV, po wstępnym przetworzeniu.
+
+\subsection{Dane ZTM (Lokalizacje)}
+\paragraph{Atrybuty (Kolumny):}
+\begin{itemize}
+    \item \texttt{timestamp\_utc} (String: Czas zdarzenia z pojazdu)
+    \item \texttt{linia} (String: Numer linii)
+    \item \texttt{pojazd\_id} (String: Numer taborowy)
+    \item \texttt{lat} (Double: Szerokość geograficzna)
+    \item \texttt{lon} (Double: Długość geograficzna)
+    \item \texttt{data\_pozyskania} (String: Data w formacie YYYY-MM-DD)
+\end{itemize}
+
+\paragraph{Przykładowy plik CSV (2 wpisy):}
+\begin{verbatim}
+timestamp_utc,linia,pojazd_id,lat,lon,data_pozyskania
+"2025-11-17T14:30:05Z","180","3451",52.2497,21.0122,"2025-11-17"
+"2025-11-17T14:30:07Z","503","2211",52.2230,21.0080,"2025-11-17"
+\end{verbatim}
+
+\subsection{Dane Open-Meteo (Warunki Pogodowe)}
+\paragraph{Atrybuty (Kolumny):}
+\begin{itemize}
+    \item \texttt{timestamp\_godzinowy} (String: Czas pomiaru ISO 8601)
+    \item \texttt{lat} (Double: Szerokość geograficzna)
+    \item \texttt{lon} (Double: Długość geograficzna)
+    \item \texttt{temperatura\_2m} (Double: Temperatura w $^\circ$C)
+    \item \texttt{deszcz} (Double: Opady w mm)
+    \item \texttt{zachmurzenie} (Integer: Procent pokrycia nieba chmurami)
+    \item \texttt{data\_pozyskania} (String: Data w formacie YYYY-MM-DD)
+\end{itemize}
+
+\paragraph{Przykładowy plik CSV (2 wpisy):}
+\begin{verbatim}
+timestamp_godzinowy,lat,lon,temperatura_2m,deszcz,zachmurzenie,data_pozyskania
+"2025-11-17T14:00",52.2297,21.0122,4.5,0.0,85,"2025-11-17"
+"2025-11-17T15:00",52.2297,21.0122,3.8,1.2,100,"2025-11-17"
+\end{verbatim}
+
+\subsection{Dane Twitter (Sentyment i Opinie)}
+\paragraph{Atrybuty (Kolumny):}
+\begin{itemize}
+    \item \texttt{tweet\_id} (String: Unikalny identyfikator wpisu)
+    \item \texttt{created\_at} (String: Czas utworzenia tweeta w formacie ISO 8601)
+    \item \texttt{author\_name} (String: Nazwa użytkownika)
+    \item \texttt{text} (String: Pełna treść tweeta - kluczowa dla analizy NLP/sentymentu)
+    \item \texttt{sentiment} (Int: Binarna klasyfikacja sentymentu na podstawie tekstu)
+    \item \texttt{hashtags} (String: Lista hashtagów, oddzielona przecinkami)
+    \item \texttt{data\_pozyskania} (String: Data w formacie YYYY-MM-DD, partycja HDFS)
+\end{itemize}
+
+\paragraph{Przykładowy plik CSV (2 wpisy):}
+\begin{verbatim}
+tweet_id,created_at,author_name,text,sentiment,hashtags,data_pozyskania
+"1858123456789","2025-11-17T08:15:00Z","JanKowalski","Stoję w korku już godzinę, \
+nienawidzę tego miasta. Zimno i szaro.", 1, "#korek #warszawa","2025-11-17"
+"1858987654321","2025-11-17T08:20:45Z","AnnaNowak","Smog taki, że nie da się oddychać. \
+Mam dość, chcę słońca!", 1, "#smog #depresja","2025-11-17"
+\end{verbatim}
+
+\section{Stos Technologiczny i Architektura}
+
+W projekcie wykorzystana zostanie architektura Lambda, zapewniająca zarówno archiwizację danych historycznych, jak i podejmowanie decyzji w czasie zbliżonym do rzeczywistego. Poniżej przedstawiono wybrane technologie oraz uzasadnienie ich użycia.
+
+\subsection{Apache NiFi (Ingestion Layer)}
+Apache NiFi posłuży do automatyzacji pobierania danych z trzech niezależnych źródeł API (ZTM, Open-Meteo, Twitter). Jest to narzędzie, które pozwoli na cykliczne odpytywanie endpointów HTTP, wstępną walidację poprawności JSON-ów oraz ich wstępne transformacje.
+
+\subsection{Apache Kafka (Buffering Layer)}
+Apache Kafka zostanie wykorzystana jako bufor pośredniczący między NiFi a warstwą przetwarzania. Utworzone zostaną tematy  dla każdego źródła danych (np. \texttt{ztm\_traffic}, \texttt{weather\_conditions}, \texttt{social\_mood}). Użycie Kafki pozwala na odseparowanie procesu pobierania danych od ich analizy, gwarantując, że w przypadku spowolnienia przetwarzania żadne dane nie zostaną utracone.
+
+\subsection{Apache Spark (Processing Layer)}
+Apache Spark będzie stanowił główny silnik analityczny projektu. Jego zadaniem będzie łączenie strumieni danych w czasie rzeczywistym (np. łączenie informacji o deszczu z informacją o zatorze drogowym w tym samym oknie czasowym). Spark posłuży również do transformacji surowych danych do formatów wymaganych przez warstwy składowania.
+
+\subsection{Apache Hadoop HDFS \& Apache Hive (Batch Layer)}
+HDFS wraz z nakładką Apache Hive będzie pełnił rolę magazynu danych historycznych.
+\begin{itemize}
+    \item \textbf{Rola:} Składowanie wszystkich surowych danych pozyskanych z API w formacie ORC oraz udostępnianie ich w formie tabelarycznej (SQL).
+    \item \textbf{Cel biznesowy:} Umożliwienie późniejszej analizy skuteczności algorytmów oraz generowanie raportów historycznych, np. zestawienia dni, w których warunki do wyświetlania reklam były spełnione najczęściej.
+\end{itemize}
+
+\subsection{Apache HBase (Serving Layer)}
+Apache HBase zostanie wykorzystana jako warstwa serwująca wyniki.
+\begin{itemize}
+    \item \textbf{Rola:} Przechowywanie aktualnego ``stanu'' poszczególnych dzielnic Warszawy (np. Klucz: \texttt{Centrum}, Wartości: \texttt{Poziom\_Korka: Wysoki, Pogoda: Deszcz, Sentyment: Negatywny, Decyzja\_Reklamowa: TAK}).
+    \item \textbf{Cel biznesowy:} Zapewnienie możliwości natychmiastowego odczytu dla systemów wyświetlających reklamy w autobusach, które muszą w ułamku sekundy wiedzieć, jaką treść zaprezentować pasażerom.
+\end{itemize}
+
+\section{Przykładowe Testy Funkcjonalne}
+
+Poniżej przedstawiono zestaw testów weryfikujących poprawność działania poszczególnych warstw systemu, ze szczególnym uwzględnieniem składowania danych w HDFS oraz serwowania decyzji reklamowych w HBase.
+
+\subsection{Test 1: Weryfikacja struktury katalogów i uprawnień w HDFS}
+\textbf{Cel:} Potwierdzenie, że Apache NiFi poprawnie tworzy strukturę katalogów dla poszczególnych źródeł danych (partitioning) i nadaje odpowiednie uprawnienia.
+\textbf{Komenda:}
+\begin{verbatim}
+hdfs dfs -ls -R /user/project_ads/data/
+\end{verbatim}
+\textbf{Oczekiwany wynik:} Widoczna hierarchia katalogów z podziałem na źródła i daty, np.:
+\begin{verbatim}
+drwxr-xr-x ... /user/project_ads/data/weather/date=2025-11-17
+drwxr-xr-x ... /user/project_ads/data/twitter/date=2025-11-17
+drwxr-xr-x ... /user/project_ads/data/ztm/date=2025-11-17
+\end{verbatim}
+
+\subsection{Test 2: Weryfikacja zawartości i formatu danych (Weather API)}
+\textbf{Cel:} Sprawdzenie, czy dane pogodowe są poprawnie parsowane z JSON do formatu CSV i czy zawierają kluczowe atrybuty (temperatura, deszcz) niezbędne do podjęcia decyzji reklamowej.
+\textbf{Komenda:}
+\begin{verbatim}
+hdfs dfs -cat /user/project_ads/data/weather/date=2025-11-17/part-00001.csv | head -n 5
+\end{verbatim}
+\textbf{Oczekiwany wynik:} Wyświetlenie rekordów zgodnych ze schematem (timestamp, geo, temp, deszcz, zachmurzenie), np.:
+\begin{verbatim}
+2025-11-17T14:00,52.2297,21.0122,4.5,0.0,85,"2025-11-17"
+2025-11-17T15:00,52.2297,21.0122,3.8,1.2,100,"2025-11-17"
+\end{verbatim}
+
+\subsection{Test 3: Weryfikacja Logiki Biznesowej i Scoringu (HBase)}
+\textbf{Cel:} Weryfikacja, czy moduł analityczny (Apache Spark) poprawnie skorelował trzy strumienie danych: warunki pogodowe, sentyment tweetów oraz \textbf{płynność ruchu (ZTM)}. Test sprawdza obliczenie ``Wskaźnika Dyskomfortu'' (ang. \textit{Discomfort Score}) – oczekujemy, że wykrycie korka w połączeniu z deszczem i negatywnymi wpisami da bardzo wysoki wynik, uruchamiając flagę reklamową.
+\textbf{Komenda (HBase Shell):}
+\begin{verbatim}
+get 'ad_decisions', 'Warszawa_Centrum'
+\end{verbatim}
+\textbf{Oczekiwany wynik:} Rekord zawierający wyliczone miary, w tym status ruchu drogowego:
+\begin{verbatim}
+COLUMN                  CELL
+ metrics:score          timestamp=1731945600000, value=95
+ metrics:weather_cond   timestamp=1731945600000, value=Rain_Cold
+ metrics:sentiment      timestamp=1731945600000, value=NEGATIVE
+ metrics:traffic_status timestamp=1731945600000, value=CONGESTION
+ status:show_ad         timestamp=1731945600000, value=TRUE
+\end{verbatim}
+
+
+\end{document}

@@ -16,4 +16,16 @@ docker exec -u root spark-master pkill -9 -f "consume_weather_to_hbase.py"
 Write-Host "Stopping air quality job..." -ForegroundColor Cyan
 docker exec -u root spark-master pkill -9 -f "consume_air_quality_to_hbase.py"
 
+# Kill Twitter sentiment job
+Write-Host "Stopping Twitter sentiment job..." -ForegroundColor Cyan
+docker exec -u root spark-master pkill -9 -f "consume_sentiment_to_hbase.py"
+
+# Kill Ad Campaign Manager
+Write-Host "Stopping Ad Campaign Manager..." -ForegroundColor Cyan
+docker exec -u root spark-master pkill -f "ad_campaign_manager.py"
+
+# Kill Hive Archiver Scheduler
+Write-Host "Stopping Hive Archiver Scheduler..." -ForegroundColor Cyan
+docker exec -u root spark-master pkill -f "archive_to_hive.py"
+
 Write-Host "`nAll streaming jobs stopped" -ForegroundColor Green

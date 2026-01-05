@@ -28,6 +28,7 @@ Selected Metrics (Mood/Health-Affecting):
 
 import happybase
 import sys
+import os
 from datetime import datetime
 
 
@@ -49,13 +50,17 @@ def create_air_quality_table():
     print("=" * 70)
     print("\nConnecting to HBase Thrift server...")
 
+    # Detect if running in Docker
+    is_docker = os.path.exists('/.dockerenv') or os.environ.get('DOCKER_CONTAINER') == 'true'
+    host = "hbase" if is_docker else "localhost"
+
     try:
         connection = happybase.Connection(
-            host="localhost",
+            host=host,
             port=9090,
             timeout=30000,  # 30 seconds timeout
         )
-        print("✓ Connected to HBase successfully")
+        print(f"✓ Connected to HBase at {host} successfully")
 
     except Exception as e:
         print(f"✗ Failed to connect to HBase: {e}")
@@ -74,6 +79,13 @@ def create_air_quality_table():
 
     if table_name in existing_tables:
         print(f"⚠️  Table '{table_name}' already exists")
+        
+        # In automated mode (AUTO_SETUP=true), skip without recreating
+        if os.environ.get('AUTO_SETUP') == 'true':
+            print("✓ Table exists, skipping (AUTO_SETUP mode)")
+            connection.close()
+            return
+        
         response = input("Do you want to delete and recreate it? (yes/no): ")
 
         if response.lower() in ["yes", "y"]:
