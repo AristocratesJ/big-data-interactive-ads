@@ -30,13 +30,13 @@ SCAN_WINDOW_MINUTES = 10
 LOOP_INTERVAL_SECONDS = 60
 
 # Scoring Weights
-WEIGHT_CONGESTION = 0.5
-WEIGHT_WEATHER = 0.3
+WEIGHT_CONGESTION = 0.4
+WEIGHT_WEATHER = 0.4
 WEIGHT_SENTIMENT = 0.2
 
 # Thresholds
 SPEED_CONGESTION_THRESHOLD_KMH = 15.0
-SCORE_THRESHOLD_SHOW_AD = 0.6  # 0.0 to 1.0 scale
+SCORE_THRESHOLD_SHOW_AD = 0.5  # 0.0 to 1.0 scale
 
 
 def haversine_km(lat1, lon1, lat2, lon2):
@@ -127,13 +127,25 @@ def calculate_traffic_score(connection, start_key, end_key):
 
     score = len(slowest_vehicle_ids) / \
         total_vehicles if total_vehicles > 0 else 0.0
+    
+    print(f"   Traffic: {total_vehicles} vehicles, {len(slowest_vehicle_ids)} congested (<{SPEED_CONGESTION_THRESHOLD_KMH}km/h) → score={score:.2f}")
+    
     return min(score, 1.0), slowest_vehicle_ids
 
 
 def calculate_weather_score(connection):
     """
-    Calculate weather score (0.0 - 1.0).
-    Logic: Rain or Cold = Bad = High Score.
+    Calculate weather discomfort score (0.0 - 1.0).
+    Higher score = worse weather = more likely people want escapism.
+    
+    Factors:
+    - Temperature extremes (cold/hot with "feels like")
+    - Precipitation intensity (rain + snow)
+    - Wind speed
+    - Weather code (fog, storms, etc.)
+    - Time-of-day context (rush hour multiplier)
+    
+    Gracefully handles missing data fields.
     """
     now = datetime.now()
     key = now.strftime("%Y%m%d_%H")
@@ -142,21 +154,142 @@ def calculate_weather_score(connection):
         table = connection.table("weather_forecast")
         row = table.row(key.encode())
         if not row:
+            print("   ⚠️  No weather data found for current hour")
             return 0.0
 
-        rain = float(row.get(b'precipitation:rain', b'0.0'))
-        temp = float(row.get(b'temperature:temp_2m', b'20.0'))
-
+        # Track which factors we can calculate
+        factors_used = []
         score = 0.0
-        if rain > 0.5:
-            score += 0.5
-        if temp < 10.0:
-            score += 0.5
-
-        return min(score, 1.0)
-
+        
+        # Extract available metrics (with defaults only for calculations)
+        temp = row.get(b'temperature:temp_2m')
+        feels_like = row.get(b'temperature:apparent_temp')
+        rain = row.get(b'precipitation:rain')
+        snow = row.get(b'precipitation:snowfall')
+        snow_depth = row.get(b'precipitation:snow_depth')
+        wind_speed = row.get(b'wind:wind_speed')
+        weather_code = row.get(b'conditions:weather_code')
+        
+        # 1. Temperature Discomfort (0.0 - 0.4)
+        if feels_like is not None or temp is not None:
+            # Prefer "feels like" temperature
+            effective_temp = float(feels_like) if feels_like else float(temp)
+            
+            if effective_temp < 0:
+                score += 0.4  # Freezing
+            elif effective_temp < 10:
+                score += 0.3  # Very cold
+            elif effective_temp < 15:
+                score += 0.15  # Cold
+            elif effective_temp > 30:
+                score += 0.3  # Very hot
+            elif effective_temp > 25:
+                score += 0.15  # Hot
+            # 15-25°C adds nothing (comfortable)
+            
+            factors_used.append(f"temp={effective_temp:.1f}°C")
+        
+        # 2. Precipitation (0.0 - 0.3)
+        if rain is not None or snow is not None:
+            rain_mm = float(rain) if rain else 0.0
+            snow_mm = float(snow) * 100 if snow else 0.0
+            total_precip = rain_mm + snow_mm
+            
+            if total_precip > 10.0:
+                score += 0.3  # Heavy rain/snow
+            elif total_precip > 5.0:
+                score += 0.2  # Moderate rain
+            elif total_precip > 1.0:
+                score += 0.1  # Light rain
+            elif total_precip > 0.1:
+                score += 0.05  # Drizzle
+            
+            # Snow is worse than rain (harder to walk)
+            if snow_mm > 0.5:
+                score += 0.1
+            
+            factors_used.append(f"rain={rain_mm:.1f}mm")
+            if snow_mm > 0:
+                factors_used.append(f"snow={snow_mm:.1f}mm")
+        
+        # 3. Snow Depth (0.0 - 0.25)
+        # Snow depth is in meters (0.22 = 22 cm)
+        if snow_depth is not None:
+            depth_m = float(snow_depth)
+            depth_cm = depth_m * 100
+            
+            if depth_cm > 30:
+                score += 0.25  # Heavy accumulation (>30 cm)
+            elif depth_cm > 20:
+                score += 0.2   # Significant accumulation (20-30 cm)
+            elif depth_cm > 10:
+                score += 0.15  # Moderate accumulation (10-20 cm)
+            elif depth_cm > 5:
+                score += 0.1   # Light accumulation (5-10 cm)
+            elif depth_cm > 1:
+                score += 0.05  # Trace accumulation (1-5 cm)
+            
+            factors_used.append(f"snow_depth={depth_cm:.1f}cm")
+        
+        # 4. Wind (0.0 - 0.2)
+        if wind_speed is not None:
+            wind_kmh = float(wind_speed)
+            
+            if wind_kmh > 50:
+                score += 0.2  # Storm-force
+            elif wind_kmh > 30:
+                score += 0.15  # Gale
+            elif wind_kmh > 20:
+                score += 0.1  # Strong wind
+            elif wind_kmh > 10:
+                score += 0.05  # Breezy
+            
+            factors_used.append(f"wind={wind_kmh:.1f}km/h")
+        
+        # 5. Weather Condition Code (0.0 - 0.1)
+        if weather_code is not None:
+            code = int(weather_code)
+            
+            # Based on WMO codes: https://open-meteo.com/en/docs
+            severe_codes = {
+                95, 96, 99,  # Thunderstorm
+                85, 86,      # Heavy snow showers
+                75,          # Heavy snow fall
+                67,          # Freezing rain
+            }
+            moderate_codes = {
+                61, 63, 65,  # Rain
+                71, 73, 77,  # Snow
+                80, 81, 82,  # Rain showers
+            }
+            
+            if code in severe_codes:
+                score += 0.1
+                factors_used.append(f"severe_weather={code}")
+            elif code in moderate_codes:
+                score += 0.05
+                factors_used.append(f"moderate_weather={code}")
+        
+        # 5. Time-of-day modifier (commute times = more sensitive)
+        hour = now.hour
+        rush_hour = hour in [7, 8, 9, 16, 17, 18]
+        if rush_hour and score > 0:
+            score *= 1.2  # People care more about bad weather during commute
+            factors_used.append("rush_hour_x1.2")
+        
+        # Cap at 1.0
+        score = min(score, 1.0)
+        
+        # Log what we used
+        if factors_used:
+            print(f"   Weather: {', '.join(factors_used)} → score={score:.2f}")
+        else:
+            print("   ⚠️  No usable weather factors found")
+        
+        return score
+        
     except Exception as e:
-        print(f"Error getting weather: {e}")
+        print(f"❌ Error calculating weather score: {e}")
         return 0.0
 
 
@@ -177,9 +310,13 @@ def calculate_sentiment_score(connection, start_key, end_key):
                 negative_score_sum += 1
 
         if total_tweets == 0:
+            print("   Sentiment: No tweets found in window")
             return 0.0
 
-        return float(negative_score_sum) / total_tweets
+        ratio = float(negative_score_sum) / total_tweets
+        print(f"   Sentiment: {total_tweets} tweets, {negative_score_sum} negative (<4) → score={ratio:.2f}")
+        
+        return ratio
 
     except Exception as e:
         print(f"Error scanning tweets: {e}")
