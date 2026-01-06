@@ -105,8 +105,8 @@ tweets_df = parsed_df.filter(col("data.tweets").isNotNull()).select(
 
 # Extract fields from nested structure and create row key
 final_df = tweets_df.select(
-    # Create row key: YYYYMMDD_HHMMSS
-    date_format(col("kafka_ts"), "yyyyMMdd_HHmmss").alias("row_key"),
+    # Create row key: YYYYMMDD_HHMMSS_TWEETID (ensures uniqueness)
+    expr("concat(date_format(kafka_ts, 'yyyyMMdd_HHmmss'), '_', tweet.id)").alias("row_key"),
     # Tweet info
     col("tweet.id").alias("tweet_id"),
     col("tweet.createdAt").alias("created_at"),
