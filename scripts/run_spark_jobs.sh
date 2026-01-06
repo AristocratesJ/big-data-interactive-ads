@@ -73,16 +73,15 @@ docker exec -d -u root spark-master bash -c '/opt/spark/bin/spark-submit \
     --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.3 \
     /opt/spark-apps/ad_campaign_manager.py > /opt/logs/ad_manager.log 2>&1'
 
-# Start Hive Archiver Scheduler (Hourly)
-echo -e "\nStarting Hive Archiver Scheduler (Hourly)..."
+# Start Archiver Scheduler (Every 60 minutes)
+echo -e "\nStarting Archiver Scheduler (Every 60 minutes)..."
 docker exec -d -u root spark-master bash -c '
 while true; do
   echo "[$(date)] Running scheduled archive..."
   /opt/spark/bin/spark-submit \
-    --master local[*] \
-    --packages com.google.protobuf:protobuf-java:2.5.0 \
+    --master local[1] \
     /opt/spark-apps/archive_to_hive.py >> /opt/logs/archive.log 2>&1
-  echo "[$(date)] Archive complete. Sleeping for 1 hour..."
+  echo "[$(date)] Archive complete. Sleeping for 60 minutes..."
   sleep 3600
 done
 '

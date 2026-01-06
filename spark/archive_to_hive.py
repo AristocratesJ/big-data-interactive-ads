@@ -1,13 +1,11 @@
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import from_json, col, lit
 import happybase
-import time
 from datetime import datetime, timedelta
 
 # --- Configuration ---
 HBASE_HOST = 'hbase'
 HBASE_PORT = 9090
-HIVE_TABLE = "default.ad_decisions_archive"
+HDFS_PATH = "hdfs://namenode:9000/user/archive/ad_decisions"
 
 
 def get_recent_decisions(minutes=60):
@@ -24,18 +22,15 @@ def get_recent_decisions(minutes=60):
     start_key = start_time.strftime("%Y%m%d_%H%M%S")
     end_key = now.strftime("%Y%m%d_%H%M%S")
 
-    print(f"Scanning HBase from {start_key} to {end_key}...")
+    print(f"Scanning HBase from {start_key} to {end_key}...", flush=True)
 
     rows = []
-    # Prefix scan if needed, but range scan is better here
     scanner = table.scan(row_start=start_key.encode(),
                          row_stop=end_key.encode())
 
     for key, data in scanner:
-        # Decode HBase bytes to proper values
         decision_id = key.decode('utf-8')
 
-        # Helper to safely decode
         def get_val(col_name, default=b''):
             val = data.get(col_name, default)
             return val.decode('utf-8')
@@ -60,46 +55,46 @@ def get_recent_decisions(minutes=60):
     return rows
 
 
-def archive_to_hive():
-    # Use HDFS for Hive Warehouse
+def archive_to_parquet():
+    """
+    Simple archiver: HBase -> Parquet on HDFS (no Hive metastore needed)
+    """
+    print(f"[{datetime.now()}] Starting archive job...", flush=True)
+    
     spark = SparkSession.builder \
-        .appName("AdDecisionsHiveArchiver") \
+        .appName("AdDecisionsArchiver") \
         .config("spark.hadoop.fs.defaultFS", "hdfs://namenode:9000") \
-        .config("spark.sql.warehouse.dir", "hdfs://namenode:9000/user/hive/warehouse") \
-        .enableHiveSupport() \
         .getOrCreate()
 
     spark.sparkContext.setLogLevel("WARN")
 
-    print("Fetching data from HBase...")
-    data = get_recent_decisions(minutes=60)  # Archive last hour
+    print("Fetching data from HBase...", flush=True)
+    data = get_recent_decisions(minutes=5)  # Archive last 5 minutes
 
     if not data:
-        print("No new data to archive.")
+        print("No new data to archive.", flush=True)
+        spark.stop()
         return
 
-    print(f"Found {len(data)} records to archive.")
+    print(f"Found {len(data)} records to archive.", flush=True)
 
     # Create DataFrame
     df = spark.createDataFrame(data)
-
-    # Ensure types
     df.printSchema()
 
-    # Write to Hive
-    # Mode 'append' adds new data
-    # Partition by Date and Hour for efficient querying
-    print(f"Writing to Hive table: {HIVE_TABLE}")
+    # Write to HDFS as Parquet with partitioning
+    print(f"Writing to HDFS: {HDFS_PATH}", flush=True)
 
     df.write \
         .mode("append") \
         .partitionBy("dt", "hr") \
         .format("parquet") \
-        .saveAsTable(HIVE_TABLE)
+        .save(HDFS_PATH)
 
-    print("Archive complete!")
+    print("Archive complete!", flush=True)
+    print(f"Data saved to: {HDFS_PATH}", flush=True)
     spark.stop()
 
 
 if __name__ == "__main__":
-    archive_to_hive()
+    archive_to_parquet()

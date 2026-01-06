@@ -318,12 +318,12 @@ Otwórz http://localhost:8090 i sprawdź tematy:
 
 ## Analityka i Archiwizacja (Hive)
 
-System posiada dedykowaną warstwę analityczną opartą o **Apache Hive** (wbudowany w Spark), która archiwizuje decyzje reklamowe na HDFS w formacie Parquet.
+System posiada dedykowaną warstwę analityczną opartą o **Apache Hive** (wbudowany w Spark), która archivizuje decyzje reklamowe na HDFS w formacie Parquet z partycjonowaniem Hive.
 
 ### 1. Architektura
 
 - **Decyzje (Real-time)**: `ad_campaign_manager.py` wysyła decyzje do **Kafka** (`ad-decisions`) i **HBase**.
-- **Archiwizacja (Batch)**: Job `archive_to_hive.py` uruchamiany okresowo przenosi dane z HBase do **Hive** (`ad_decisions_archive`) na HDFS.
+- **Archivizacja (Batch)**: Job `archive_to_hive.py` uruchamiany co godzinę przenosi dane z HBase do tabeli Hive na HDFS w lokalizacji `/user/archive/ad_decisions` (format Parquet, partycjonowanie po dacie i godzinie).
 
 ### 2. Monitorowanie Archiwizacji
 
@@ -342,16 +342,29 @@ Możesz sprawdzić zarchiwizowane dane za pomocą przygotowanego skryptu:
 #### macOS / Linux
 
 ```bash
-docker exec -u root spark-master /opt/spark/bin/spark-submit /opt/spark-apps/check_hive_data.py
+docker exec spark-master /opt/spark/bin/spark-submit --master local[1] /opt/spark-apps/query_archive.py
 ```
 
 #### Windows (PowerShell)
 
 ```powershell
-docker exec -u root spark-master /opt/spark/bin/spark-submit /opt/spark-apps/check_hive_data.py
+docker exec spark-master /opt/spark/bin/spark-submit --master local[1] /opt/spark-apps/query_archive.py
 ```
 
-Możesz również przeglądać pliki fizycznie na HDFS przez przeglądarkę: http://localhost:9870/explorer.html#/user/hive/warehouse/ad_decisions_archive
+Skrypt wyświetli:
+
+- Schemat danych
+- Liczbę zarchiwizowanych rekordów
+- Przykładowe dane (ostatnie 20 decyzji)
+- Statystyki (liczba SHOW_AD vs NO_AD, średnie score'y)
+
+**Filtrowanie po dacie:**
+
+```powershell
+docker exec spark-master /opt/spark/bin/spark-submit --master local[1] /opt/spark-apps/query_archive.py --date 20260106 --limit 10
+```
+
+Możesz również przeglądać pliki fizycznie na HDFS przez przeglądarkę: http://localhost:9870/explorer.html#/user/archive/ad_decisions
 
 ## 🔄 Podsumowanie workflow
 
