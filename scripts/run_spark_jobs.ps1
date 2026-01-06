@@ -30,23 +30,23 @@ function Wait-SparkApp {
 Write-Host "Setup complete, ready to submit jobs" -ForegroundColor Green
 
 Write-Host "`nStarting buses streaming job..." -ForegroundColor Yellow
-docker exec -d -u spark spark-master /opt/spark/bin/spark-submit --master spark://spark-master:7077 --total-executor-cores 1 --executor-memory 350M --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.3 /opt/spark-apps/consume_buses_to_hbase.py
+docker exec -d -u spark spark-master /opt/spark/bin/spark-submit --master spark://spark-master:7077 --total-executor-cores 1 --executor-memory 512M --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.3 /opt/spark-apps/consume_buses_to_hbase.py
 Wait-SparkApp -ExpectedCount 1
 
 Write-Host "`nStarting trolleys streaming job..." -ForegroundColor Yellow
-docker exec -d -u spark spark-master /opt/spark/bin/spark-submit --master spark://spark-master:7077 --total-executor-cores 1 --executor-memory 350M --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.3 /opt/spark-apps/consume_trolleys_to_hbase.py
+docker exec -d -u spark spark-master /opt/spark/bin/spark-submit --master spark://spark-master:7077 --total-executor-cores 1 --executor-memory 512M --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.3 /opt/spark-apps/consume_trolleys_to_hbase.py
 Wait-SparkApp -ExpectedCount 2
 
 Write-Host "`nStarting weather streaming job..." -ForegroundColor Yellow
-docker exec -d -u spark spark-master /opt/spark/bin/spark-submit --master spark://spark-master:7077 --total-executor-cores 1 --executor-memory 350M --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.3 /opt/spark-apps/consume_weather_to_hbase.py
+docker exec -d -u spark spark-master /opt/spark/bin/spark-submit --master spark://spark-master:7077 --total-executor-cores 1 --executor-memory 512M --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.3 /opt/spark-apps/consume_weather_to_hbase.py
 Wait-SparkApp -ExpectedCount 3
 
 Write-Host "`nStarting air quality streaming job..." -ForegroundColor Yellow
-docker exec -d -u spark spark-master /opt/spark/bin/spark-submit --master spark://spark-master:7077 --total-executor-cores 1 --executor-memory 350M --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.3 /opt/spark-apps/consume_air_quality_to_hbase.py
+docker exec -d -u spark spark-master /opt/spark/bin/spark-submit --master spark://spark-master:7077 --total-executor-cores 1 --executor-memory 512M --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.3 /opt/spark-apps/consume_air_quality_to_hbase.py
 Wait-SparkApp -ExpectedCount 4
 
 Write-Host "`nStarting Twitter sentiment streaming job..." -ForegroundColor Yellow
-docker exec -d -u spark spark-master /opt/spark/bin/spark-submit --master spark://spark-master:7077 --total-executor-cores 1 --executor-memory 350M --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.3 /opt/spark-apps/consume_sentiment_to_hbase.py
+docker exec -d -u spark spark-master /opt/spark/bin/spark-submit --master spark://spark-master:7077 --total-executor-cores 1 --executor-memory 512M --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.3 /opt/spark-apps/consume_sentiment_to_hbase.py
 Wait-SparkApp -ExpectedCount 5
 
 Write-Host "`nStarting Ad Campaign Manager..." -ForegroundColor Yellow
