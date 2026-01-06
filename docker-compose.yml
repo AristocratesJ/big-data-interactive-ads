@@ -188,9 +188,10 @@ services:
     environment:
       - HBASE_MANAGES_ZK=false
     healthcheck:
-      test: ["CMD-SHELL", "echo 'status' | hbase shell -n | grep -q 'active'"]
+      test:
+        ["CMD-SHELL", "echo 'status' | hbase shell -n 2>&1 | grep -q 'active'"]
       interval: 15s
-      timeout: 10s
+      timeout: 20s
       retries: 10
       start_period: 90s
 
