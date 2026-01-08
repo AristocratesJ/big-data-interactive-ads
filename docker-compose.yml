@@ -160,6 +160,33 @@ services:
     restart: unless-stopped # Auto-restart if it crashes
     networks:
       - bigdata-network
+
+  # --- 6c. AD CAMPAIGN MANAGER ---
+  ad-manager:
+    build:
+      context: ./spark
+      dockerfile: Dockerfile
+    container_name: ad-manager
+    command: >
+      /opt/spark/bin/spark-submit 
+      --master local[1] 
+      --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.3 
+      /opt/spark-apps/ad_campaign_manager.py
+    environment:
+      - SPARK_MODE=client
+      - HOME=/home/spark
+      - TZ=Europe/Warsaw
+    depends_on:
+      - hbase
+      - kafka
+    volumes:
+      - ./spark:/opt/spark-apps
+      - spark_ivy:/home/spark/.ivy2
+    mem_limit: 1g
+    restart: unless-stopped
+    networks:
+      - bigdata-network
+
   # --- 7. HADOOP NAMENODE (HDFS Storage Layer) ---
   namenode:
     image: bde2020/hadoop-namenode:latest
