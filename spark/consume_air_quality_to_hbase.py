@@ -17,26 +17,24 @@ Data structure from Open-Meteo Air Quality API:
 Row key format: YYYYMMDD_HH (e.g., 20260103_14)
 """
 
+import happybase
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import (
-    from_json,
-    col,
-    explode,
     arrays_zip,
-    date_format,
-    to_timestamp,
+    col,
     current_timestamp,
+    date_format,
+    explode,
+    from_json,
+    to_timestamp,
 )
 from pyspark.sql.types import (
-    StructType,
-    StructField,
-    StringType,
     ArrayType,
     DoubleType,
-    IntegerType,
+    StringType,
+    StructField,
+    StructType,
 )
-import happybase
-
 
 # Define schema for Open-Meteo Air Quality API response
 air_quality_schema = StructType(
@@ -138,9 +136,9 @@ spark.sparkContext.setLogLevel("ERROR")
 print("=" * 70)
 print("SPARK STREAMING: Air Quality Forecast to HBase")
 print("=" * 70)
-print(f"Reading from Kafka topic: air-quality-raw")
-print(f"Writing to HBase table: air_quality_forecast")
-print(f"Checkpoint location: /tmp/spark-checkpoint-air-quality")
+print("Reading from Kafka topic: air-quality-raw")
+print("Writing to HBase table: air_quality_forecast")
+print("Checkpoint location: /tmp/spark-checkpoint-air-quality")
 print("=" * 70)
 
 # Read from Kafka
@@ -188,9 +186,9 @@ exploded_df = parsed_df.select(
 # Extract fields and create row key
 final_df = exploded_df.select(
     # Parse timestamp and create row key: YYYYMMDD_HH
-    date_format(
-        to_timestamp(col("hourly_data.time"), "yyyy-MM-dd'T'HH:mm"), "yyyyMMdd_HH"
-    ).alias("row_key"),
+    date_format(to_timestamp(col("hourly_data.time"), "yyyy-MM-dd'T'HH:mm"), "yyyyMMdd_HH").alias(
+        "row_key"
+    ),
     # Column family: particulates
     col("hourly_data.pm10").alias("pm10"),
     col("hourly_data.pm2_5").alias("pm2_5"),
@@ -209,9 +207,7 @@ final_df = exploded_df.select(
     col("hourly_data.mugwort_pollen").alias("mugwort_pollen"),
     col("hourly_data.ragweed_pollen").alias("ragweed_pollen"),
     # Column family: metadata
-    date_format(current_timestamp(), "yyyy-MM-dd HH:mm:ss").alias(
-        "ingestion_timestamp"
-    ),
+    date_format(current_timestamp(), "yyyy-MM-dd HH:mm:ss").alias("ingestion_timestamp"),
     col("hourly_data.time").alias("forecast_time"),
 )
 

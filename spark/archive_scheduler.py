@@ -11,12 +11,12 @@ Usage:
   - Worker:    Called automatically by the scheduler via spark-submit
 """
 
-import sys
+import argparse
 import os
-import time
 import signal
 import subprocess
-import argparse
+import sys
+import time
 from datetime import datetime, timedelta
 
 # --- Configuration ---
@@ -62,8 +62,8 @@ def run_worker(start_str, end_str):
     The Spark Job: Fetches data from HBase -> Writes to HDFS Parquet
     """
     # Lazy imports to avoid overhead in Scheduler process
-    from pyspark.sql import SparkSession
     import happybase
+    from pyspark.sql import SparkSession
 
     print(f"[Worker] Starting archive for window: {start_str} to {end_str}")
 
@@ -99,9 +99,7 @@ def run_worker(start_str, end_str):
                     "decision_id": decision_id,
                     "traffic_score": float(get_val(b"metrics:traffic_score", b"0.0")),
                     "weather_score": float(get_val(b"metrics:weather_score", b"0.0")),
-                    "sentiment_score": float(
-                        get_val(b"metrics:sentiment_score", b"0.0")
-                    ),
+                    "sentiment_score": float(get_val(b"metrics:sentiment_score", b"0.0")),
                     "global_score": float(get_val(b"metrics:global_score", b"0.0")),
                     "decision_result": get_val(b"decision:result", b"NO_AD"),
                     "target_locations": get_val(b"target:locations", b"[]"),
@@ -125,9 +123,7 @@ def run_worker(start_str, end_str):
 
         df = spark.createDataFrame(rows)
 
-        df.write.mode("append").partitionBy("dt", "hr").format("parquet").save(
-            TARGET_PATH
-        )
+        df.write.mode("append").partitionBy("dt", "hr").format("parquet").save(TARGET_PATH)
 
         print("[Worker] Write complete!", flush=True)
 
@@ -291,9 +287,7 @@ def run_scheduler():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--worker", action="store_true", help="Run in Spark Worker mode"
-    )
+    parser.add_argument("--worker", action="store_true", help="Run in Spark Worker mode")
     parser.add_argument("--start", help="Start timestamp YYYYMMDD_HHMMSS")
     parser.add_argument("--end", help="End timestamp YYYYMMDD_HHMMSS")
 

@@ -11,10 +11,11 @@ Architecture:
                             → Kafka (processed)
 """
 
-from kafka.admin import KafkaAdminClient, NewTopic
-from kafka.errors import TopicAlreadyExistsError, KafkaError
-import sys
 import os
+import sys
+
+from kafka.admin import KafkaAdminClient, NewTopic
+from kafka.errors import KafkaError, TopicAlreadyExistsError
 
 
 def create_kafka_topics():
@@ -27,8 +28,7 @@ def create_kafka_topics():
     print("=" * 70)
 
     # Detect if running in Docker
-    is_docker = os.path.exists(
-        '/.dockerenv') or os.environ.get('DOCKER_CONTAINER') == 'true'
+    is_docker = os.path.exists("/.dockerenv") or os.environ.get("DOCKER_CONTAINER") == "true"
     bootstrap_server = "kafka:29092" if is_docker else "localhost:9092"
 
     # Connect to Kafka
@@ -129,9 +129,7 @@ def create_kafka_topics():
             admin_client.create_topics(new_topics=[topic], validate_only=False)
             print(f"✓ Created topic: {topic.name}")
             print(f"  Partitions: {topic.num_partitions}")
-            print(
-                f"  Retention: {int(topic.topic_configs['retention.ms']) / 3600000:.0f} hours"
-            )
+            print(f"  Retention: {int(topic.topic_configs['retention.ms']) / 3600000:.0f} hours")
             print(f"  Compression: {topic.topic_configs['compression.type']}")
             created_count += 1
         except TopicAlreadyExistsError:

@@ -1,7 +1,6 @@
 """NiFi Setup Module - Variable Configuration and Template Upload"""
 
 import os
-import time
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -9,14 +8,14 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 def is_running_in_docker():
     """Check if script is running inside Docker container."""
-    return os.path.exists('/.dockerenv') or os.environ.get('DOCKER_CONTAINER') == 'true'
+    return os.path.exists("/.dockerenv") or os.environ.get("DOCKER_CONTAINER") == "true"
 
 
 def set_nifi_variables():
     """Set NiFi variables from .env file via REST API."""
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("Setting NiFi Variables from .env")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
     import requests
     import urllib3
@@ -27,6 +26,7 @@ def set_nifi_variables():
     # Load environment variables (try dotenv first, fallback to os.environ)
     try:
         from dotenv import load_dotenv
+
         load_dotenv(dotenv_path=REPO_ROOT / ".env")
     except ImportError:
         # dotenv not available (e.g., in Docker), env vars should be set directly
@@ -60,10 +60,7 @@ def set_nifi_variables():
             return False
 
         token = auth_response.text
-        headers = {
-            "Authorization": f"Bearer {token}",
-            "Host": "localhost:8443"
-        }
+        headers = {"Authorization": f"Bearer {token}", "Host": "localhost:8443"}
         print("  ✓ Authenticated successfully")
 
         # Get root process group ID
@@ -89,23 +86,11 @@ def set_nifi_variables():
         current_version = var_data["processGroupRevision"]["version"]
 
         # Prepare variables payload
-        variables_to_set = [
-            {
-                "variable": {
-                    "name": "TWITTER_API_KEY",
-                    "value": twitter_api_key
-                }
-            }
-        ]
+        variables_to_set = [{"variable": {"name": "TWITTER_API_KEY", "value": twitter_api_key}}]
 
         payload = {
-            "processGroupRevision": {
-                "version": current_version
-            },
-            "variableRegistry": {
-                "processGroupId": root_id,
-                "variables": variables_to_set
-            }
+            "processGroupRevision": {"version": current_version},
+            "variableRegistry": {"processGroupId": root_id, "variables": variables_to_set},
         }
 
         # Set variables
@@ -139,9 +124,9 @@ def set_nifi_variables():
 
 def upload_nifi_template():
     """Upload NiFi template via REST API."""
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("Uploading NiFi Template")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
     import requests
     import urllib3
@@ -180,7 +165,7 @@ def upload_nifi_template():
         token = auth_response.text
         headers = {
             "Authorization": f"Bearer {token}",
-            "Host": "localhost:8443"  # Keep Host header for all requests
+            "Host": "localhost:8443",  # Keep Host header for all requests
         }
         print("  ✓ Authenticated successfully")
 
@@ -205,11 +190,11 @@ def upload_nifi_template():
                 timeout=10,
             )
             if processors_response.status_code == 200:
-                existing_count = len(
-                    processors_response.json().get("processors", []))
+                existing_count = len(processors_response.json().get("processors", []))
                 if existing_count > 0:
                     print(
-                        f"  ✓ Flow already deployed ({existing_count} processors found). Skipping template upload.")
+                        f"  ✓ Flow already deployed ({existing_count} processors found). Skipping template upload."
+                    )
                     return True
         except Exception as e:
             print(f"  Warning: Could not check existing processors: {e}")
@@ -217,8 +202,7 @@ def upload_nifi_template():
         # Step 3: Upload template
         print("  Uploading template...")
         with open(template_path, "rb") as f:
-            files = {"template": ("nifi_template_v1.xml",
-                                  f, "application/xml")}
+            files = {"template": ("nifi_template_v1.xml", f, "application/xml")}
             response = requests.post(
                 f"{base_url}/process-groups/{root_id}/templates/upload",
                 headers=headers,
@@ -235,6 +219,7 @@ def upload_nifi_template():
         try:
             # NiFi returns XML response, not JSON
             import xml.etree.ElementTree as ET
+
             root_xml = ET.fromstring(response.text)
             template_id = root_xml.find(".//id").text
             print(f"✓ Template uploaded successfully (ID: {template_id})")
@@ -258,8 +243,7 @@ def upload_nifi_template():
         )
 
         if instantiate_response.status_code not in (200, 201):
-            print(
-                f"✗ Template instantiation failed: {instantiate_response.status_code}")
+            print(f"✗ Template instantiation failed: {instantiate_response.status_code}")
             print(f"  Response: {instantiate_response.text[:200]}")
             return False
 
@@ -282,6 +266,7 @@ def upload_nifi_template():
 def check_nifi():
     """Check if NiFi is ready."""
     import requests
+
     try:
         host = "nifi" if is_running_in_docker() else "localhost"
         response = requests.get(

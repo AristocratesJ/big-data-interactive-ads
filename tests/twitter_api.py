@@ -26,7 +26,6 @@ from pathlib import Path
 
 import requests
 from dotenv import load_dotenv
-
 from twitter_search_scenarios import SCENARIOS, ScenarioId, list_scenarios
 
 TWITTER_BASE_URL = "https://api.twitterapi.io/twitter/tweet/advanced_search"
@@ -100,9 +99,7 @@ querystring = scenario.build_params()
 if cursor:
     querystring["cursor"] = cursor
 
-headers = {
-    "X-API-Key": API_KEY
-}
+headers = {"X-API-Key": API_KEY}
 
 print(f"SCENARIO: {SELECTED_SCENARIO.value}")
 print(f"DESC: {scenario.description}")
@@ -110,10 +107,10 @@ print(f"DEBUG queryType: {querystring.get('queryType')}")
 print(f"DEBUG query: {querystring.get('query')}")
 
 try:
-    req = requests.Request('GET', TWITTER_BASE_URL, headers=headers, params=querystring)
+    req = requests.Request("GET", TWITTER_BASE_URL, headers=headers, params=querystring)
     prepared = req.prepare()
     print(f"\nREQUEST URL: {prepared.url}\n")
-    
+
     response = requests.get(
         TWITTER_BASE_URL,
         headers=headers,
@@ -177,14 +174,13 @@ try:
             print("\nThere is another page of results.")
             print("Set cursor = next_cursor and run again:")
             print("next_cursor:", data.get("next_cursor"))
-            
+
             # Optional CSV export
             # df.to_csv("twitter_test_data.csv", index=False, quotechar='"')
-            
+
     else:
         print(
-            "Query valid, but no results (0 tweets). "
-            "Try changing keywords or increasing km range."
+            "Query valid, but no results (0 tweets). Try changing keywords or increasing km range."
         )
         print("Raw response:", data)
 

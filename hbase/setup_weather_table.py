@@ -24,10 +24,11 @@ Selected Metrics (Mood-Affecting):
   - Relative Humidity - comfort level
 """
 
-import happybase
-import sys
 import os
+import sys
 from datetime import datetime
+
+import happybase
 
 
 def create_weather_table():
@@ -49,7 +50,7 @@ def create_weather_table():
     print("\nConnecting to HBase Thrift server...")
 
     # Detect if running in Docker
-    is_docker = os.path.exists('/.dockerenv') or os.environ.get('DOCKER_CONTAINER') == 'true'
+    is_docker = os.path.exists("/.dockerenv") or os.environ.get("DOCKER_CONTAINER") == "true"
     host = "hbase" if is_docker else "localhost"
 
     try:
@@ -77,13 +78,13 @@ def create_weather_table():
 
     if table_name in existing_tables:
         print(f"⚠️  Table '{table_name}' already exists")
-        
+
         # In automated mode (AUTO_SETUP=true), skip without recreating
-        if os.environ.get('AUTO_SETUP') == 'true':
+        if os.environ.get("AUTO_SETUP") == "true":
             print("✓ Table exists, skipping (AUTO_SETUP mode)")
             connection.close()
             return
-        
+
         response = input("Do you want to delete and recreate it? (yes/no): ")
 
         if response.lower() in ["yes", "y"]:
@@ -102,9 +103,7 @@ def create_weather_table():
 
     families = {
         "temperature": dict(max_versions=1, compression="GZ", bloom_filter_type="ROW"),
-        "precipitation": dict(
-            max_versions=1, compression="GZ", bloom_filter_type="ROW"
-        ),
+        "precipitation": dict(max_versions=1, compression="GZ", bloom_filter_type="ROW"),
         "atmospheric": dict(max_versions=1, compression="GZ", bloom_filter_type="ROW"),
         "wind": dict(max_versions=1, compression="GZ", bloom_filter_type="ROW"),
         "metadata": dict(max_versions=1, compression="GZ", bloom_filter_type="ROW"),
@@ -127,33 +126,33 @@ def create_weather_table():
     print("TABLE INFORMATION")
     print("=" * 70)
     print(f"Table Name: {table_name}")
-    print(f"Location: Warsaw (52.2297°N, 21.0122°E)")
-    print(f"Row Key Format: YYYYMMDD_HH (e.g., 20260101_14)")
-    print(f"\nColumn Families:")
+    print("Location: Warsaw (52.2297°N, 21.0122°E)")
+    print("Row Key Format: YYYYMMDD_HH (e.g., 20260101_14)")
+    print("\nColumn Families:")
 
-    print(f"\n  1. temperature: (Comfort Level)")
-    print(f"     - temp_2m: Temperature at 2m height (°C)")
-    print(f"     - apparent_temp: Apparent/feels-like temperature (°C)")
+    print("\n  1. temperature: (Comfort Level)")
+    print("     - temp_2m: Temperature at 2m height (°C)")
+    print("     - apparent_temp: Apparent/feels-like temperature (°C)")
 
-    print(f"\n  2. precipitation: (Outdoor Activity Impact)")
-    print(f"     - precip_probability: Probability of precipitation (0-100%)")
-    print(f"     - precip_total: Total precipitation (mm)")
-    print(f"     - rain: Rain amount (mm)")
-    print(f"     - snowfall: Snowfall amount (cm)")
-    print(f"     - snow_depth: Snow depth (cm)")
+    print("\n  2. precipitation: (Outdoor Activity Impact)")
+    print("     - precip_probability: Probability of precipitation (0-100%)")
+    print("     - precip_total: Total precipitation (mm)")
+    print("     - rain: Rain amount (mm)")
+    print("     - snowfall: Snowfall amount (cm)")
+    print("     - snow_depth: Snow depth (cm)")
 
-    print(f"\n  3. atmospheric: (General Conditions)")
-    print(f"     - weather_code: WMO weather code (0-99)")
-    print(f"     - cloud_cover: Total cloud cover (0-100%)")
-    print(f"     - relative_humidity: Relative humidity (0-100%)")
+    print("\n  3. atmospheric: (General Conditions)")
+    print("     - weather_code: WMO weather code (0-99)")
+    print("     - cloud_cover: Total cloud cover (0-100%)")
+    print("     - relative_humidity: Relative humidity (0-100%)")
 
-    print(f"\n  4. wind: (Discomfort Factors)")
-    print(f"     - wind_speed: Wind speed at 10m (km/h)")
-    print(f"     - wind_gusts: Wind gusts at 10m (km/h)")
+    print("\n  4. wind: (Discomfort Factors)")
+    print("     - wind_speed: Wind speed at 10m (km/h)")
+    print("     - wind_gusts: Wind gusts at 10m (km/h)")
 
-    print(f"\n  5. metadata: (Tracking Info)")
-    print(f"     - forecast_time: When forecast was generated")
-    print(f"     - ingestion_timestamp: When data was ingested")
+    print("\n  5. metadata: (Tracking Info)")
+    print("     - forecast_time: When forecast was generated")
+    print("     - ingestion_timestamp: When data was ingested")
 
     # Insert sample record to test
     print("\n" + "=" * 70)

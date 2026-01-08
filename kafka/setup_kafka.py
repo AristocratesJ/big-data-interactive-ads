@@ -8,17 +8,18 @@ REPO_ROOT = Path(__file__).resolve().parent
 
 def is_running_in_docker():
     """Check if script is running inside Docker container."""
-    return os.path.exists('/.dockerenv') or os.environ.get('DOCKER_CONTAINER') == 'true'
+    return os.path.exists("/.dockerenv") or os.environ.get("DOCKER_CONTAINER") == "true"
 
 
 def run_kafka_setup():
     """Run Kafka topics setup."""
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("Creating Kafka Topics")
-    print(f"{'='*70}")
-    
+    print(f"{'=' * 70}")
+
     try:
         from setup_kafka_topics import create_kafka_topics
+
         create_kafka_topics()
         print("✓ Kafka topics created successfully")
         return True
@@ -30,6 +31,7 @@ def run_kafka_setup():
 def check_kafka():
     """Check if Kafka is ready."""
     from kafka.admin import KafkaAdminClient
+
     try:
         bootstrap_server = "kafka:29092" if is_running_in_docker() else "localhost:9092"
         client = KafkaAdminClient(

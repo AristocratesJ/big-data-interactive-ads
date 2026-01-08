@@ -18,10 +18,11 @@ This format allows:
   - Natural sorting by time
 """
 
-import happybase
-import sys
 import os
+import sys
 from datetime import datetime
+
+import happybase
 
 
 def create_transport_table():
@@ -41,7 +42,7 @@ def create_transport_table():
     print("\nConnecting to HBase Thrift server...")
 
     # Detect if running in Docker
-    is_docker = os.path.exists('/.dockerenv') or os.environ.get('DOCKER_CONTAINER') == 'true'
+    is_docker = os.path.exists("/.dockerenv") or os.environ.get("DOCKER_CONTAINER") == "true"
     host = "hbase" if is_docker else "localhost"
 
     try:
@@ -69,13 +70,13 @@ def create_transport_table():
 
     if table_name in existing_tables:
         print(f"⚠️  Table '{table_name}' already exists")
-        
+
         # In automated mode (AUTO_SETUP=true), skip without recreating
-        if os.environ.get('AUTO_SETUP') == 'true':
+        if os.environ.get("AUTO_SETUP") == "true":
             print("✓ Table exists, skipping (AUTO_SETUP mode)")
             connection.close()
             return
-        
+
         response = input("Do you want to delete and recreate it? (yes/no): ")
 
         if response.lower() in ["yes", "y"]:
@@ -117,18 +118,18 @@ def create_transport_table():
     print("TABLE INFORMATION")
     print("=" * 70)
     print(f"Table Name: {table_name}")
-    print(f"\nColumn Families:")
-    print(f"  1. info:")
-    print(f"     - Lines (e.g., '26', '161', 'L31')")
-    print(f"     - VehicleNumber (e.g., '1294', '10072')")
-    print(f"     - Brigade (e.g., '015', '1')")
-    print(f"     - Time (e.g., '2026-01-01 00:20:28')")
-    print(f"\n  2. location:")
-    print(f"     - Lat (e.g., 52.25588)")
-    print(f"     - Lon (e.g., 21.055733)")
-    print(f"\n  3. metadata:")
-    print(f"     - vehicle_type ('bus' or 'trolley')")
-    print(f"     - ingestion_timestamp (when data was ingested)")
+    print("\nColumn Families:")
+    print("  1. info:")
+    print("     - Lines (e.g., '26', '161', 'L31')")
+    print("     - VehicleNumber (e.g., '1294', '10072')")
+    print("     - Brigade (e.g., '015', '1')")
+    print("     - Time (e.g., '2026-01-01 00:20:28')")
+    print("\n  2. location:")
+    print("     - Lat (e.g., 52.25588)")
+    print("     - Lon (e.g., 21.055733)")
+    print("\n  3. metadata:")
+    print("     - vehicle_type ('bus' or 'trolley')")
+    print("     - ingestion_timestamp (when data was ingested)")
 
     # Insert sample record to test
     print("\n" + "=" * 70)

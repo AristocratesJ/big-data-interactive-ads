@@ -12,15 +12,15 @@ Logic:
 6. Push decisions to Kafka 'ad-decisions' (Real-time Delivery) using Spark.
 """
 
-import happybase
-import time
-from datetime import datetime, timedelta
-import math
-from collections import defaultdict
 import json
+import math
+import time
+from collections import defaultdict
+from datetime import datetime, timedelta
 
+import happybase
 from pyspark.sql import SparkSession
-from pyspark.sql.types import StructType, StructField, StringType
+from pyspark.sql.types import StringType, StructField, StructType
 
 # --- Configuration ---
 HBASE_HOST = "hbase"
@@ -45,9 +45,9 @@ def haversine_km(lat1, lon1, lat2, lon2):
     R = 6371  # Earth radius in km
     dlat = math.radians(lat2 - lat1)
     dlon = math.radians(lon2 - lon1)
-    a = math.sin(dlat / 2) * math.sin(dlat / 2) + math.cos(
-        math.radians(lat1)
-    ) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) * math.sin(dlon / 2)
+    a = math.sin(dlat / 2) * math.sin(dlat / 2) + math.cos(math.radians(lat1)) * math.cos(
+        math.radians(lat2)
+    ) * math.sin(dlon / 2) * math.sin(dlon / 2)
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return R * c
 
@@ -83,9 +83,7 @@ def calculate_traffic_score(connection, start_key, end_key):
             lat = float(data.get(b"location:Lat", 0.0))
             lon = float(data.get(b"location:Lon", 0.0))
 
-            row_ts_str = (
-                key.decode("utf-8").split("_")[0] + key.decode("utf-8").split("_")[1]
-            )
+            row_ts_str = key.decode("utf-8").split("_")[0] + key.decode("utf-8").split("_")[1]
             try:
                 dt = datetime.strptime(row_ts_str, "%Y%m%d%H%M%S")
             except Exception:
@@ -369,9 +367,7 @@ def main_loop():
             decision_str = "SHOW_AD" if show_ad else "NO_AD"
 
             if show_ad:
-                print(
-                    f"   🎯 DECISION: {decision_str}! Targeting {len(congested_locs)} vehicles."
-                )
+                print(f"   🎯 DECISION: {decision_str}! Targeting {len(congested_locs)} vehicles.")
             else:
                 print(f"   DECISION: {decision_str}. Conditions acceptable.")
 
@@ -434,9 +430,7 @@ def main_loop():
             # Write to Kafka
             df.selectExpr("CAST(key AS STRING)", "CAST(value AS STRING)").write.format(
                 "kafka"
-            ).option("kafka.bootstrap.servers", KAFKA_BOOTSTRAP).option(
-                "topic", KAFKA_TOPIC
-            ).save()
+            ).option("kafka.bootstrap.servers", KAFKA_BOOTSTRAP).option("topic", KAFKA_TOPIC).save()
 
             # print(f"   Produced to Kafka via Spark: {payload_json}")
 

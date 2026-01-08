@@ -17,27 +17,25 @@ Data structure from Open-Meteo API:
 Row key format: YYYYMMDD_HH (e.g., 20260102_14)
 """
 
+import happybase
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import (
-    from_json,
-    col,
-    explode,
     arrays_zip,
-    date_format,
-    to_timestamp,
+    col,
     current_timestamp,
-    lit,
+    date_format,
+    explode,
+    from_json,
+    to_timestamp,
 )
 from pyspark.sql.types import (
-    StructType,
-    StructField,
-    StringType,
     ArrayType,
     DoubleType,
     IntegerType,
+    StringType,
+    StructField,
+    StructType,
 )
-import happybase
-
 
 # Define schema for Open-Meteo weather API response
 weather_schema = StructType(
@@ -49,9 +47,7 @@ weather_schema = StructType(
                     StructField("time", ArrayType(StringType()), True),
                     StructField("temperature_2m", ArrayType(DoubleType()), True),
                     StructField("apparent_temperature", ArrayType(DoubleType()), True),
-                    StructField(
-                        "precipitation_probability", ArrayType(IntegerType()), True
-                    ),
+                    StructField("precipitation_probability", ArrayType(IntegerType()), True),
                     StructField("precipitation", ArrayType(DoubleType()), True),
                     StructField("rain", ArrayType(DoubleType()), True),
                     StructField("snowfall", ArrayType(DoubleType()), True),
@@ -102,9 +98,7 @@ def write_to_hbase(batch_df, batch_id):
             b"temperature:temp_2m": str(row["temp_2m"]).encode("utf-8"),
             b"temperature:apparent_temp": str(row["apparent_temp"]).encode("utf-8"),
             # precipitation family
-            b"precipitation:precip_probability": str(row["precip_probability"]).encode(
-                "utf-8"
-            ),
+            b"precipitation:precip_probability": str(row["precip_probability"]).encode("utf-8"),
             b"precipitation:precip_total": str(row["precip_total"]).encode("utf-8"),
             b"precipitation:rain": str(row["rain"]).encode("utf-8"),
             b"precipitation:snowfall": str(row["snowfall"]).encode("utf-8"),
@@ -112,9 +106,7 @@ def write_to_hbase(batch_df, batch_id):
             # atmospheric family
             b"atmospheric:weather_code": str(row["weather_code"]).encode("utf-8"),
             b"atmospheric:cloud_cover": str(row["cloud_cover"]).encode("utf-8"),
-            b"atmospheric:relative_humidity": str(row["relative_humidity"]).encode(
-                "utf-8"
-            ),
+            b"atmospheric:relative_humidity": str(row["relative_humidity"]).encode("utf-8"),
             # wind family
             b"wind:wind_speed": str(row["wind_speed"]).encode("utf-8"),
             b"wind:wind_gusts": str(row["wind_gusts"]).encode("utf-8"),
@@ -143,9 +135,9 @@ spark.sparkContext.setLogLevel("ERROR")
 print("=" * 70)
 print("SPARK STREAMING: Weather Forecast to HBase")
 print("=" * 70)
-print(f"Reading from Kafka topic: weather-forecast-raw")
-print(f"Writing to HBase table: weather_forecast")
-print(f"Checkpoint location: /tmp/spark-checkpoint-weather")
+print("Reading from Kafka topic: weather-forecast-raw")
+print("Writing to HBase table: weather_forecast")
+print("Checkpoint location: /tmp/spark-checkpoint-weather")
 print("=" * 70)
 
 # Read from Kafka
@@ -192,9 +184,9 @@ exploded_df = parsed_df.select(
 # Extract fields and create row key
 final_df = exploded_df.select(
     # Parse timestamp and create row key: YYYYMMDD_HH
-    date_format(
-        to_timestamp(col("hourly_data.time"), "yyyy-MM-dd'T'HH:mm"), "yyyyMMdd_HH"
-    ).alias("row_key"),
+    date_format(to_timestamp(col("hourly_data.time"), "yyyy-MM-dd'T'HH:mm"), "yyyyMMdd_HH").alias(
+        "row_key"
+    ),
     # Column family: temperature
     col("hourly_data.temperature_2m").alias("temp_2m"),
     col("hourly_data.apparent_temperature").alias("apparent_temp"),
@@ -212,9 +204,7 @@ final_df = exploded_df.select(
     col("hourly_data.wind_speed_10m").alias("wind_speed"),
     col("hourly_data.wind_gusts_10m").alias("wind_gusts"),
     # Column family: metadata
-    date_format(current_timestamp(), "yyyy-MM-dd HH:mm:ss").alias(
-        "ingestion_timestamp"
-    ),
+    date_format(current_timestamp(), "yyyy-MM-dd HH:mm:ss").alias("ingestion_timestamp"),
     col("hourly_data.time").alias("forecast_time"),
 )
 

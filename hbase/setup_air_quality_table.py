@@ -26,10 +26,11 @@ Selected Metrics (Mood/Health-Affecting):
   - NO2, SO2 - respiratory irritation, odor
 """
 
-import happybase
-import sys
 import os
+import sys
 from datetime import datetime
+
+import happybase
 
 
 def create_air_quality_table():
@@ -51,7 +52,7 @@ def create_air_quality_table():
     print("\nConnecting to HBase Thrift server...")
 
     # Detect if running in Docker
-    is_docker = os.path.exists('/.dockerenv') or os.environ.get('DOCKER_CONTAINER') == 'true'
+    is_docker = os.path.exists("/.dockerenv") or os.environ.get("DOCKER_CONTAINER") == "true"
     host = "hbase" if is_docker else "localhost"
 
     try:
@@ -79,13 +80,13 @@ def create_air_quality_table():
 
     if table_name in existing_tables:
         print(f"⚠️  Table '{table_name}' already exists")
-        
+
         # In automated mode (AUTO_SETUP=true), skip without recreating
-        if os.environ.get('AUTO_SETUP') == 'true':
+        if os.environ.get("AUTO_SETUP") == "true":
             print("✓ Table exists, skipping (AUTO_SETUP mode)")
             connection.close()
             return
-        
+
         response = input("Do you want to delete and recreate it? (yes/no): ")
 
         if response.lower() in ["yes", "y"]:
@@ -127,34 +128,34 @@ def create_air_quality_table():
     print("TABLE INFORMATION")
     print("=" * 70)
     print(f"Table Name: {table_name}")
-    print(f"Location: Warsaw (52.2297°N, 21.0122°E)")
-    print(f"Row Key Format: YYYYMMDD_HH (e.g., 20260101_14)")
-    print(f"\nColumn Families:")
+    print("Location: Warsaw (52.2297°N, 21.0122°E)")
+    print("Row Key Format: YYYYMMDD_HH (e.g., 20260101_14)")
+    print("\nColumn Families:")
 
-    print(f"\n  1. particulates: (Breathing Quality)")
-    print(f"     - pm10: Particulate Matter 10μm (μg/m³)")
-    print(f"     - pm2_5: Particulate Matter 2.5μm (μg/m³)")
+    print("\n  1. particulates: (Breathing Quality)")
+    print("     - pm10: Particulate Matter 10μm (μg/m³)")
+    print("     - pm2_5: Particulate Matter 2.5μm (μg/m³)")
 
-    print(f"\n  2. gases: (Respiratory Health)")
-    print(f"     - ozone: Ozone O3 (μg/m³)")
-    print(f"     - nitrogen_dioxide: NO2 (μg/m³)")
-    print(f"     - sulphur_dioxide: SO2 (μg/m³)")
-    print(f"     - ammonia: NH3 (μg/m³)")
+    print("\n  2. gases: (Respiratory Health)")
+    print("     - ozone: Ozone O3 (μg/m³)")
+    print("     - nitrogen_dioxide: NO2 (μg/m³)")
+    print("     - sulphur_dioxide: SO2 (μg/m³)")
+    print("     - ammonia: NH3 (μg/m³)")
 
-    print(f"\n  3. uv: (Sun Exposure Risk)")
-    print(f"     - uv_index: UV Index (0-11+)")
-    print(f"     - uv_index_clear_sky: UV Index if clear (0-11+)")
+    print("\n  3. uv: (Sun Exposure Risk)")
+    print("     - uv_index: UV Index (0-11+)")
+    print("     - uv_index_clear_sky: UV Index if clear (0-11+)")
 
-    print(f"\n  4. pollen: (Allergy Impact)")
-    print(f"     - birch: Birch pollen (grains/m³)")
-    print(f"     - grass: Grass pollen (grains/m³)")
-    print(f"     - ragweed: Ragweed pollen (grains/m³)")
-    print(f"     - alder: Alder pollen (grains/m³)")
-    print(f"     - mugwort: Mugwort pollen (grains/m³)")
+    print("\n  4. pollen: (Allergy Impact)")
+    print("     - birch: Birch pollen (grains/m³)")
+    print("     - grass: Grass pollen (grains/m³)")
+    print("     - ragweed: Ragweed pollen (grains/m³)")
+    print("     - alder: Alder pollen (grains/m³)")
+    print("     - mugwort: Mugwort pollen (grains/m³)")
 
-    print(f"\n  5. metadata: (Tracking Info)")
-    print(f"     - forecast_time: When forecast was generated")
-    print(f"     - ingestion_timestamp: When data was ingested")
+    print("\n  5. metadata: (Tracking Info)")
+    print("     - forecast_time: When forecast was generated")
+    print("     - ingestion_timestamp: When data was ingested")
 
     # Insert sample record to test
     print("\n" + "=" * 70)

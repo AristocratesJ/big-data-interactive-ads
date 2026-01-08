@@ -5,60 +5,69 @@ Reads from: tweets-warsaw-raw Kafka topic
 Writes to: tweets HBase table
 """
 
+import happybase
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import (
-    from_json,
     col,
     current_timestamp,
     date_format,
     explode,
+    expr,
+    from_json,
     size,
     when,
-    expr,
 )
 from pyspark.sql.types import (
-    StructType,
-    StructField,
-    StringType,
     ArrayType,
     IntegerType,
+    StringType,
+    StructField,
+    StructType,
 )
-import happybase
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
-
 # Define schema for Twitter API response
-author_schema = StructType([
-    StructField("userName", StringType(), True),
-    StructField("name", StringType(), True),
-    StructField("id", StringType(), True),
-])
+author_schema = StructType(
+    [
+        StructField("userName", StringType(), True),
+        StructField("name", StringType(), True),
+        StructField("id", StringType(), True),
+    ]
+)
 
-hashtag_schema = StructType([
-    StructField("text", StringType(), True),
-    StructField("indices", ArrayType(IntegerType()), True),
-])
+hashtag_schema = StructType(
+    [
+        StructField("text", StringType(), True),
+        StructField("indices", ArrayType(IntegerType()), True),
+    ]
+)
 
-entities_schema = StructType([
-    StructField("hashtags", ArrayType(hashtag_schema), True),
-])
+entities_schema = StructType(
+    [
+        StructField("hashtags", ArrayType(hashtag_schema), True),
+    ]
+)
 
-tweet_schema = StructType([
-    StructField("id", StringType(), True),
-    StructField("text", StringType(), True),
-    StructField("createdAt", StringType(), True),
-    StructField("author", author_schema, True),
-    StructField("entities", entities_schema, True),
-    StructField("lang", StringType(), True),
-    StructField("likeCount", IntegerType(), True),
-    StructField("retweetCount", IntegerType(), True),
-    StructField("replyCount", IntegerType(), True),
-    StructField("viewCount", IntegerType(), True),
-])
+tweet_schema = StructType(
+    [
+        StructField("id", StringType(), True),
+        StructField("text", StringType(), True),
+        StructField("createdAt", StringType(), True),
+        StructField("author", author_schema, True),
+        StructField("entities", entities_schema, True),
+        StructField("lang", StringType(), True),
+        StructField("likeCount", IntegerType(), True),
+        StructField("retweetCount", IntegerType(), True),
+        StructField("replyCount", IntegerType(), True),
+        StructField("viewCount", IntegerType(), True),
+    ]
+)
 
-twitter_schema = StructType([
-    StructField("tweets", ArrayType(tweet_schema), True),
-])
+twitter_schema = StructType(
+    [
+        StructField("tweets", ArrayType(tweet_schema), True),
+    ]
+)
 
 
 # Initialize Spark Session
@@ -86,21 +95,18 @@ print("✅ Connected to Kafka topic: tweets-warsaw-raw")
 
 # Extract message value and Kafka timestamp
 messages_df = kafka_df.select(
-    col("value").cast("string").alias("json_value"),
-    col("timestamp").alias("kafka_ts")
+    col("value").cast("string").alias("json_value"), col("timestamp").alias("kafka_ts")
 )
 
 # Parse JSON with schema
 parsed_df = messages_df.select(
-    from_json(col("json_value"), twitter_schema).alias("data"),
-    col("kafka_ts")
+    from_json(col("json_value"), twitter_schema).alias("data"), col("kafka_ts")
 )
 
 # Explode tweets array to get individual tweets
 # Filter out null data.tweets before exploding
 tweets_df = parsed_df.filter(col("data.tweets").isNotNull()).select(
-    explode(col("data.tweets")).alias("tweet"),
-    col("kafka_ts")
+    explode(col("data.tweets")).alias("tweet"), col("kafka_ts")
 )
 
 # Extract fields from nested structure and create row key
@@ -117,8 +123,10 @@ final_df = tweets_df.select(
     # Hashtags - extract text from array and join with commas
     when(
         size(col("tweet.entities.hashtags")) > 0,
-        expr("concat_ws(',', transform(tweet.entities.hashtags, x -> x.text))")
-    ).otherwise("").alias("hashtags"),
+        expr("concat_ws(',', transform(tweet.entities.hashtags, x -> x.text))"),
+    )
+    .otherwise("")
+    .alias("hashtags"),
     # Engagement metrics
     col("tweet.likeCount").alias("like_count"),
     col("tweet.retweetCount").alias("retweet_count"),
@@ -128,10 +136,8 @@ final_df = tweets_df.select(
     col("tweet.lang").alias("lang"),
     # Metadata
     date_format(col("kafka_ts"), "yyyy-MM-dd").alias("data_acquisition_date"),
-    date_format(current_timestamp(),
-                "yyyy-MM-dd HH:mm:ss").alias("ingestion_timestamp"),
-    date_format(current_timestamp(),
-                "yyyy-MM-dd HH:mm:ss").alias("analysis_timestamp"),
+    date_format(current_timestamp(), "yyyy-MM-dd HH:mm:ss").alias("ingestion_timestamp"),
+    date_format(current_timestamp(), "yyyy-MM-dd HH:mm:ss").alias("analysis_timestamp"),
 )
 
 print("✅ Data transformation pipeline ready")
@@ -191,10 +197,16 @@ def write_to_hbase(batch_df, batch_id):
                 # Column family: sentiment
                 b"sentiment:score": str(sentiment_score).encode("utf-8"),
                 b"sentiment:compound_score": str(compound_score).encode("utf-8"),
-                b"sentiment:analysis_timestamp": safe_str(row["analysis_timestamp"]).encode("utf-8"),
+                b"sentiment:analysis_timestamp": safe_str(row["analysis_timestamp"]).encode(
+                    "utf-8"
+                ),
                 # Column family: metadata
-                b"metadata:data_acquisition_date": safe_str(row["data_acquisition_date"]).encode("utf-8"),
-                b"metadata:ingestion_timestamp": safe_str(row["ingestion_timestamp"]).encode("utf-8"),
+                b"metadata:data_acquisition_date": safe_str(row["data_acquisition_date"]).encode(
+                    "utf-8"
+                ),
+                b"metadata:ingestion_timestamp": safe_str(row["ingestion_timestamp"]).encode(
+                    "utf-8"
+                ),
                 # Column family: engagement
                 b"engagement:like_count": safe_str(row["like_count"]).encode("utf-8"),
                 b"engagement:retweet_count": safe_str(row["retweet_count"]).encode("utf-8"),

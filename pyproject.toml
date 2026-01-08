@@ -14,4 +14,14 @@ dependencies = [
     "matplotlib>=3.10.8",
     "seaborn>=0.13.2",
     "jupyter>=1.1.1",
+    "ruff>=0.14.10",
 ]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+select = ["E", "F", "W", "C", "B", "I"]
+ignore = ["E203"]
+extend-ignore = []
+extend-select = []
+exclude = ["**/metastore_db/**", "**/.venv/**", "**/venv/**"]

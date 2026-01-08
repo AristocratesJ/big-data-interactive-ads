@@ -20,10 +20,11 @@ Note: Different row key format than weather/transport tables
       (tweets have exact timestamps, not hourly aggregation)
 """
 
-import happybase
-import sys
 import os
+import sys
 from datetime import datetime
+
+import happybase
 
 
 def create_sentiment_table():
@@ -44,7 +45,7 @@ def create_sentiment_table():
     print("\nConnecting to HBase Thrift server...")
 
     # Detect if running in Docker
-    is_docker = os.path.exists('/.dockerenv') or os.environ.get('DOCKER_CONTAINER') == 'true'
+    is_docker = os.path.exists("/.dockerenv") or os.environ.get("DOCKER_CONTAINER") == "true"
     host = "hbase" if is_docker else "localhost"
 
     try:
@@ -72,13 +73,13 @@ def create_sentiment_table():
 
     if table_name in existing_tables:
         print(f"⚠️  Table '{table_name}' already exists")
-        
+
         # In automated mode (AUTO_SETUP=true), skip without recreating
-        if os.environ.get('AUTO_SETUP') == 'true':
+        if os.environ.get("AUTO_SETUP") == "true":
             print("✓ Table exists, skipping (AUTO_SETUP mode)")
             connection.close()
             return
-        
+
         response = input("Do you want to delete and recreate it? (yes/no): ")
 
         if response.lower() in ["yes", "y"]:
@@ -121,35 +122,35 @@ def create_sentiment_table():
     print("TABLE INFORMATION")
     print("=" * 70)
     print(f"Table Name: {table_name}")
-    print(f"Location Filter: Warsaw, Poland")
-    print(f"Row Key Format: YYYYMMDD_HHMMSS_tweet_id")
-    print(f"  Example: 20260101_143025_1745678901234567890")
-    print(f"\nColumn Families:")
+    print("Location Filter: Warsaw, Poland")
+    print("Row Key Format: YYYYMMDD_HHMMSS_tweet_id")
+    print("  Example: 20260101_143025_1745678901234567890")
+    print("\nColumn Families:")
 
-    print(f"\n  1. content: (Sentiment Analysis Input)")
-    print(f"     - text: Tweet text (primary data for sentiment)")
-    print(f"     - lang: Language code (e.g., 'pl', 'en')")
-    print(f"     - hashtags: Comma-separated hashtags")
+    print("\n  1. content: (Sentiment Analysis Input)")
+    print("     - text: Tweet text (primary data for sentiment)")
+    print("     - lang: Language code (e.g., 'pl', 'en')")
+    print("     - hashtags: Comma-separated hashtags")
 
-    print(f"\n  2. engagement: (Sentiment Indicators)")
-    print(f"     - like_count: Number of likes")
-    print(f"     - retweet_count: Number of retweets")
-    print(f"     - reply_count: Number of replies")
-    print(f"     - view_count: Number of views")
-    print(f"     - quote_count: Number of quotes")
+    print("\n  2. engagement: (Sentiment Indicators)")
+    print("     - like_count: Number of likes")
+    print("     - retweet_count: Number of retweets")
+    print("     - reply_count: Number of replies")
+    print("     - view_count: Number of views")
+    print("     - quote_count: Number of quotes")
 
-    print(f"\n  3. author: (Influence & Credibility)")
-    print(f"     - username: Twitter username (@handle)")
-    print(f"     - name: Display name")
-    print(f"     - location: User's location (if available)")
-    print(f"     - followers: Follower count (influence)")
-    print(f"     - is_verified: Blue check mark (boolean)")
+    print("\n  3. author: (Influence & Credibility)")
+    print("     - username: Twitter username (@handle)")
+    print("     - name: Display name")
+    print("     - location: User's location (if available)")
+    print("     - followers: Follower count (influence)")
+    print("     - is_verified: Blue check mark (boolean)")
 
-    print(f"\n  4. metadata: (Tracking Info)")
-    print(f"     - tweet_id: Unique Twitter ID")
-    print(f"     - url: Direct link to tweet")
-    print(f"     - created_at: Original tweet timestamp (ISO format)")
-    print(f"     - ingestion_timestamp: When we ingested it")
+    print("\n  4. metadata: (Tracking Info)")
+    print("     - tweet_id: Unique Twitter ID")
+    print("     - url: Direct link to tweet")
+    print("     - created_at: Original tweet timestamp (ISO format)")
+    print("     - ingestion_timestamp: When we ingested it")
 
     # Insert sample record to test
     print("\n" + "=" * 70)

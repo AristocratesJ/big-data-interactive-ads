@@ -5,18 +5,18 @@ Reads from: ztm-trolleys-raw Kafka topic
 Writes to: transport_events HBase table
 """
 
+import happybase
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import (
     col,
-    from_json,
+    concat_ws,
+    current_timestamp,
     explode,
     expr,
-    concat_ws,
+    from_json,
     lit,
-    current_timestamp,
 )
-from pyspark.sql.types import StructType, StructField, StringType, ArrayType, DoubleType
-import happybase
+from pyspark.sql.types import ArrayType, DoubleType, StringType, StructField, StructType
 
 # Initialize Spark Session
 spark = (
@@ -76,9 +76,7 @@ parsed_df = messages_df.select(
 )
 
 # Explode result array (one row per trolley)
-exploded_df = parsed_df.select(
-    explode(col("data.result")).alias("trolley"), col("kafka_timestamp")
-)
+exploded_df = parsed_df.select(explode(col("data.result")).alias("trolley"), col("kafka_timestamp"))
 
 # Extract fields and create row key
 final_df = exploded_df.select(
@@ -137,12 +135,10 @@ def write_to_hbase(batch_df, batch_id):
                 b"info:Time": str(row["Time"] or "").encode("utf-8"),
                 b"location:Lat": str(row["Lat"] or "").encode("utf-8"),
                 b"location:Lon": str(row["Lon"] or "").encode("utf-8"),
-                b"metadata:vehicle_type": str(row["vehicle_type"] or "trolley").encode(
+                b"metadata:vehicle_type": str(row["vehicle_type"] or "trolley").encode("utf-8"),
+                b"metadata:ingestion_timestamp": str(row["ingestion_timestamp"] or "").encode(
                     "utf-8"
                 ),
-                b"metadata:ingestion_timestamp": str(
-                    row["ingestion_timestamp"] or ""
-                ).encode("utf-8"),
             }
 
             # Write to HBase
