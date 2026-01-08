@@ -20,12 +20,14 @@ docker exec -u root spark-master pkill -9 -f "consume_air_quality_to_hbase.py"
 Write-Host "Stopping Twitter sentiment job..." -ForegroundColor Cyan
 docker exec -u root spark-master pkill -9 -f "consume_sentiment_to_hbase.py"
 
-# Kill Ad Campaign Manager
-Write-Host "Stopping Ad Campaign Manager..." -ForegroundColor Cyan
-docker exec -u root spark-master pkill -f "ad_campaign_manager.py"
+# Note Ad Campaign Manager is now a Docker service
+Write-Host "Note: Ad Campaign Manager runs as Docker service (ad-campaign-manager)" -ForegroundColor Gray
+Write-Host "      To stop: docker-compose stop ad-campaign-manager" -ForegroundColor
+Write-Host "      To restart: docker-compose restart ad-campaign-manager" -ForegroundColor Gray
 
-# Kill Hive Archiver Scheduler
-Write-Host "Stopping Hive Archiver Scheduler..." -ForegroundColor Cyan
-docker exec -u root spark-master pkill -f "archive_to_hive.py"
+# Note: Archive scheduler is now a Docker service
+Write-Host "Note: Archive scheduler runs as Docker service (archive-scheduler)" -ForegroundColor Gray
+Write-Host "      To stop: docker-compose stop archive-scheduler" -ForegroundColor Gray
+Write-Host "      To restart: docker-compose restart archive-scheduler" -ForegroundColor Gray
 
 Write-Host "`nAll streaming jobs stopped" -ForegroundColor Green

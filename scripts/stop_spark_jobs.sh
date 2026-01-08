@@ -15,10 +15,14 @@ stop_job "weather" "consume_weather_to_hbase.py"
 stop_job "air quality" "consume_air_quality_to_hbase.py"
 stop_job "Twitter sentiment" "consume_sentiment_to_hbase.py"
 
-echo "Stopping Ad Campaign Manager..."
-docker exec -u root spark-master pkill -f "ad_campaign_manager.py"
+# Note Ad Campaign Manager is now a Docker service
+echo "Note: Ad Campaign Manager runs as Docker service (ad-campaign-manager)"
+echo "      To stop: docker-compose stop ad-campaign-manager"
+echo "      To restart: docker-compose restart ad-campaign-manager"
 
-echo "Stopping Hive Archiver Scheduler..."
-docker exec -u root spark-master pkill -f "archive_to_hive.py"
+# Note: Archive scheduler is now a Docker service
+echo "Note: Archive scheduler runs as Docker service (archive-scheduler)"
+echo "      To stop: docker-compose stop archive-scheduler"
+echo "      To restart: docker-compose restart archive-scheduler"
 
 echo -e "\nAll streaming jobs stopped"

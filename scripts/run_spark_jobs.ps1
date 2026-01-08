@@ -24,15 +24,11 @@ function Wait-SparkApp {
 }
 
 
-# Dependencies are now pre-installed in the Docker image.
-
-
-Write-Host "Setup complete, ready to submit jobs" -ForegroundColor Green
+Write-Host "`nSetup complete, ready to submit jobs" -ForegroundColor Green
 
 Write-Host "`nStarting buses streaming job..." -ForegroundColor Yellow
 docker exec -d -u spark spark-master /opt/spark/bin/spark-submit --master spark://spark-master:7077 --total-executor-cores 1 --executor-memory 512M --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.3 /opt/spark-apps/consume_buses_to_hbase.py
 Wait-SparkApp -ExpectedCount 1
-
 Write-Host "`nStarting trolleys streaming job..." -ForegroundColor Yellow
 docker exec -d -u spark spark-master /opt/spark/bin/spark-submit --master spark://spark-master:7077 --total-executor-cores 1 --executor-memory 512M --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.3 /opt/spark-apps/consume_trolleys_to_hbase.py
 Wait-SparkApp -ExpectedCount 2
@@ -49,14 +45,9 @@ Write-Host "`nStarting Twitter sentiment streaming job..." -ForegroundColor Yell
 docker exec -d -u spark spark-master /opt/spark/bin/spark-submit --master spark://spark-master:7077 --total-executor-cores 1 --executor-memory 512M --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.3 /opt/spark-apps/consume_sentiment_to_hbase.py
 Wait-SparkApp -ExpectedCount 5
 
-Write-Host "`nStarting Ad Campaign Manager..." -ForegroundColor Yellow
-docker exec -d -u root spark-master bash -c '/opt/spark/bin/spark-submit --master local[1] --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.3 /opt/spark-apps/ad_campaign_manager.py > /opt/spark-apps/ad_manager.log 2>&1'
-
-Write-Host "`nStarting Archiver Scheduler (Every 60 minutes)..." -ForegroundColor Yellow
-docker exec -d -u root spark-master bash -c 'while true; do echo "[$(date)] Running scheduled archive..."; /opt/spark/bin/spark-submit --master local[1] /opt/spark-apps/archive_to_hive.py >> /opt/spark-apps/archive.log 2>&1; echo "[$(date)] Archive complete. Sleeping for 60 minutes..."; sleep 3600; done'
 
 Write-Host "`nAll streaming jobs submitted!" -ForegroundColor Green
 Write-Host "`nMonitor jobs at:" -ForegroundColor Cyan
 Write-Host "   - Spark UI: http://localhost:8080" -ForegroundColor White
-Write-Host "   - Logs: docker logs -f spark-master" -ForegroundColor White
+Write-Host "   - Spark logs: docker logs -f spark-master" -ForegroundColor White
 Write-Host "`nTo stop jobs: .\scripts\stop_spark_jobs.ps1" -ForegroundColor Yellow
