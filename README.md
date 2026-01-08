@@ -316,55 +316,271 @@ Otwórz http://localhost:8090 i sprawdź tematy:
 
 ---
 
-## Analityka i Archiwizacja (Hive)
+## 📊 Analityka i Archiwizacja (Hive)
 
-System posiada dedykowaną warstwę analityczną opartą o **Apache Hive** (wbudowany w Spark), która archivizuje decyzje reklamowe na HDFS w formacie Parquet z partycjonowaniem Hive.
+System posiada dedykowaną warstwę analityczną opartą o **Apache Hive** (zintegrowany ze Spark SQL), która archiwizuje decyzje reklamowe na HDFS w formacie Parquet z partycjonowaniem Hive.
 
 ### 1. Architektura
 
-- **Decyzje (Real-time)**: `ad_campaign_manager.py` wysyła decyzje do **Kafka** (`ad-decisions`) i **HBase**.
-- **Archivizacja (Batch)**: Job `archive_to_hive.py` uruchamiany co godzinę przenosi dane z HBase do tabeli Hive na HDFS w lokalizacji `/user/archive/ad_decisions` (format Parquet, partycjonowanie po dacie i godzinie).
+- **Decyzje (Real-time)**: `ad_campaign_manager.py` (Docker Service) wysyła decyzje do **Kafka** (`ad-decisions`) i **HBase** co minutę.
+- **Archivizacja (Batch)**: `archive_scheduler.py` (Docker Service) uruchamia co godzinę przenoszenie danych z HBase do tabeli Hive na HDFS w lokalizacji `/user/archive/ad_decisions` (format Parquet, partycjonowanie po dacie i godzinie).
 
 ### 2. Monitorowanie Archiwizacji
 
-Job archiwizacyjny działa automatycznie w tle. Możesz sprawdzić jego status przeglądając logi w kontenerze:
+Archive Scheduler działa automatycznie jako Docker service. Sprawdź jego status:
 
 #### macOS / Linux / Windows
 
 ```bash
-docker exec spark-master tail -f /opt/spark-apps/archive.log
+# Sprawdź logi schedulera
+docker logs -f archive-scheduler
+
+# Lub sprawdź szczegółowe logi jobów
+docker exec archive-scheduler tail -f /opt/spark-apps/scheduler.log
 ```
 
-### 3. Weryfikacja Danych w Hive
+---
 
-Możesz sprawdzić zarchiwizowane dane za pomocą przygotowanego skryptu:
+## 🔍 Jak Zapytać Wyniki?
 
-#### macOS / Linux
+System oferuje pięć sposobów dostępu do danych: **HBase** (real-time), **Hive/HDFS** (archiwum), **Jupyter Notebook** (analiza wizualna), **HDFS Browser** i **Kafka** (streaming).
+
+### Metoda 1: Zapytania HBase (Real-Time Data)
+
+HBase przechowuje dane z ostatnich 24 godzin - najlepsze dla zapytań real-time.
+
+#### Przykład 1: Skanowanie ostatnich decyzji
 
 ```bash
-docker exec spark-master /opt/spark/bin/spark-submit --master local[1] /opt/spark-apps/query_archive.py
+# Uruchom HBase shell
+docker exec -it hbase hbase shell
+
+# W HBase shell:
+# Sprawdź ostatnie 5 decyzji
+scan 'ad_decisions', {LIMIT => 5}
+
+# Sprawdź konkretną decyzję
+get 'ad_decisions', '20260108_143000'
+
+# Skanuj zakres czasowy (ostatnie 10 minut)
+scan 'ad_decisions', {STARTROW => '20260108_143000', STOPROW => '20260108_144000'}
+
+# Wyjdź
+exit
 ```
 
-#### Windows (PowerShell)
+#### Przykład 2: Sprawdzanie innych tabel
 
-```powershell
-docker exec spark-master /opt/spark/bin/spark-submit --master local[1] /opt/spark-apps/query_archive.py
+```bash
+# Transport events
+scan 'transport_events', {LIMIT => 2}
+
+# Weather forecast
+scan 'weather_forecast', {LIMIT => 2}
+
+# Air quality
+scan 'air_quality_forecast', {LIMIT => 2}
+
+# Tweets
+scan 'tweets', {LIMIT => 2}
 ```
 
-Skrypt wyświetli:
+---
 
-- Schemat danych
-- Liczbę zarchiwizowanych rekordów
-- Przykładowe dane (ostatnie 20 decyzji)
-- Statystyki (liczba SHOW_AD vs NO_AD, średnie score'y)
+### Metoda 2: Zapytania Hive/Spark SQL (Historical Data)
 
-**Filtrowanie po dacie:**
+Dane archiwalne w formacie Parquet można odpytywać przez Spark SQL. 
 
-```powershell
-docker exec spark-master /opt/spark/bin/spark-submit --master local[1] /opt/spark-apps/query_archive.py --date 20260106 --limit 10
+> **Ważne**: Zapytania muszą być wykonywane przez kontener `archive-scheduler`, który ma skonfigurowany dostęp do Hive metastore.
+
+```bash
+# Uruchom Spark SQL shell
+docker exec -it archive-scheduler /opt/spark/bin/spark-sql
+
+# W Spark SQL:
+# Pokaż wszystkie tabele
+SHOW TABLES;
+
+# Sprawdź schemat tabeli
+DESCRIBE ad_decisions_archive;
+
+# Sprawdź partycje
+SHOW PARTITIONS ad_decisions_archive;
+
+# Prosty SELECT
+SELECT * FROM ad_decisions_archive LIMIT 10;
+
+# Statystyki decyzji
+SELECT 
+    decision_result, 
+    COUNT(*) as count,
+    AVG(global_score) as avg_score
+FROM ad_decisions_archive
+GROUP BY decision_result;
+
+# Decyzje z konkretnej daty
+SELECT * FROM ad_decisions_archive 
+WHERE dt = '20260108' 
+LIMIT 20;
+
+# Decyzje z konkretnej godziny
+SELECT * FROM ad_decisions_archive 
+WHERE dt = '20260108' AND hr = '14'
+ORDER BY decision_id DESC;
+
+# Top 10 najwyższych score'ów
+SELECT decision_id, global_score, decision_result 
+FROM ad_decisions_archive 
+ORDER BY global_score DESC 
+LIMIT 10;
 ```
 
-Możesz również przeglądać pliki fizycznie na HDFS przez przeglądarkę: http://localhost:9870/explorer.html#/user/archive/ad_decisions
+---
+
+### Metoda 3: Analiza w Jupyter Notebook
+
+System zawiera gotowy Jupyter Notebook z wizualizacjami.
+
+#### Uruchomienie Notebook
+
+1. **Zainstaluj Jupyter** (jeśli nie masz):
+   ```bash
+   pip install jupyter pandas matplotlib seaborn happybase
+   ```
+
+2. **Uruchom Jupyter**:
+   ```bash
+   jupyter notebook
+   ```
+
+3. **Otwórz** `analyse/ad_decisions_analysis.ipynb`
+
+#### Co znajdziesz w Notebook?
+
+- 📈 **Wykres czasowy** global score
+- 📊 **Rozkład decyzji** (SHOW_AD vs NO_AD)
+- 🔥 **Heatmapa korelacji** między wskaźnikami
+- 📉 **Statystyki opisowe** dla wszystkich score'ów
+- 🕐 **Analiza wzorców czasowych** (godziny szczytu)
+
+#### Przykład użycia Notebook:
+
+```python
+# Load last 24 hours of data from HBase
+decisions = load_decisions_from_hbase(hours=24)
+df = pd.DataFrame(decisions)
+
+# Quick stats
+print(df.describe())
+
+# Decision distribution
+df['decision'].value_counts().plot(kind='bar')
+
+# Score correlation heatmap
+sns.heatmap(df[['traffic_score', 'weather_score', 'sentiment_score', 'global_score']].corr(), 
+            annot=True, cmap='coolwarm')
+```
+
+---
+
+### Metoda 4: Przeglądanie HDFS przez Przeglądarkę
+
+**URL**: http://localhost:9870/explorer.html#/user/archive/ad_decisions
+
+Możesz:
+- Przeglądać strukturę partycji (`dt=20260108/hr=14/`)
+- Pobierać pliki Parquet
+- Sprawdzać rozmiar danych
+- Weryfikować uprawnienia
+
+---
+
+### Metoda 5: Monitoring Kafka (Real-Time Decisions)
+
+Monitoruj decyzje w czasie rzeczywistym przez Kafka UI lub bezpośrednio z topicu.
+
+#### Kafka UI
+
+**URL**: http://localhost:8090
+
+1. Przejdź do **Topics** → **ad-decisions**
+2. Kliknij **Messages**
+3. Zobacz ostatnie decyzje w czasie rzeczywistym
+
+#### Konsumowanie przez CLI
+
+```bash
+docker exec -it kafka kafka-console-consumer \
+    --bootstrap-server localhost:9092 \
+    --topic ad-decisions \
+    --from-beginning \
+    --max-messages 10
+```
+
+---
+
+## 🧪 Przykładowe Zapytania Analityczne
+
+### 1. Skuteczność kampanii (conversion rate)
+
+```sql
+-- W Spark SQL
+SELECT 
+    dt,
+    COUNT(*) as total,
+    SUM(CASE WHEN decision_result = 'SHOW_AD' THEN 1 ELSE 0 END) as shown,
+    ROUND(SUM(CASE WHEN decision_result = 'SHOW_AD' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) as show_rate_pct
+FROM ad_decisions_archive
+GROUP BY dt
+ORDER BY dt DESC;
+```
+
+### 2. Średnie score'y w szczycie vs poza szczytem
+
+```sql
+SELECT 
+    CASE 
+        WHEN hr IN ('07','08','09','16','17','18') THEN 'Rush Hour'
+        ELSE 'Off-Peak'
+    END as period,
+    AVG(traffic_score) as avg_traffic,
+    AVG(weather_score) as avg_weather,
+    AVG(global_score) as avg_global
+FROM ad_decisions_archive
+GROUP BY 
+    CASE 
+        WHEN hr IN ('07','08','09','16','17','18') THEN 'Rush Hour'
+        ELSE 'Off-Peak'
+    END;
+```
+
+### 3. Top 5 dni z najwyższym global score
+
+```sql
+SELECT 
+    dt,
+    AVG(global_score) as avg_score,
+    MAX(global_score) as max_score,
+    COUNT(*) as decisions
+FROM ad_decisions_archive
+GROUP BY dt
+ORDER BY avg_score DESC
+LIMIT 5;
+```
+
+---
+
+## 📋 Szybkie Porównanie Metod Dostępu
+
+| Metoda | Zakres Danych | Opóźnienie | Najlepsze Dla |
+|--------|---------------|------------|---------------|
+| **HBase Shell** | Ostatnie 24h | <10ms | Real-time monitoring, pojedyncze rekordy |
+| **Spark SQL/Hive** | Pełne archiwum | ~5-10s | Agregacje, analizy historyczne, raporty |
+| **Jupyter Notebook** | Ostatnie 24h (HBase) | <1s | Wizualizacje, eksploracja danych |
+| **Kafka UI** | Streaming | Real-time | Monitoring decyzji na żywo |
+| **HDFS Browser** | Pełne archiwum | - | Przeglądanie plików, weryfikacja partycji |
+
+---
 
 ## 🔄 Podsumowanie workflow
 
