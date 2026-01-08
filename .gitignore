@@ -3,3 +3,6 @@
 *.pyc
 .env
 .vscode
+
+*/logs/
+*.log
