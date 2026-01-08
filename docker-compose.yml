@@ -136,6 +136,30 @@ services:
     networks:
       - bigdata-network
 
+  # --- 6b. ARCHIVE SCHEDULER ---
+  archive-scheduler:
+    build:
+      context: ./spark
+      dockerfile: Dockerfile
+    container_name: archive-scheduler
+    working_dir: /opt/spark-apps
+    command: python3 archive_scheduler.py
+    environment:
+      - SPARK_MODE=client
+      - HOME=/home/spark
+      - TZ=Europe/Warsaw
+    depends_on:
+      - spark-master
+      - hbase
+      - namenode
+      - datanode
+    volumes:
+      - ./spark:/opt/spark-apps
+      - spark_ivy:/home/spark/.ivy2
+    mem_limit: 2g
+    restart: unless-stopped # Auto-restart if it crashes
+    networks:
+      - bigdata-network
   # --- 7. HADOOP NAMENODE (HDFS Storage Layer) ---
   namenode:
     image: bde2020/hadoop-namenode:latest
